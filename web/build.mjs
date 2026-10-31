@@ -1,0 +1,13 @@
+import { spawnSync } from 'node:child_process';
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const moon = process.platform === 'win32' ? 'moon.exe' : 'moon';
+const built = spawnSync(moon, ['build', 'web_bridge', '--target', 'js', '--release'], {cwd: root, stdio: 'inherit'});
+if (built.status !== 0) process.exit(built.status ?? 1);
+const output = path.join(root, '_build', 'site');
+mkdirSync(output, {recursive: true});
+copyFileSync(path.join(root, 'web', 'index.html'), path.join(output, 'index.html'));
+copyFileSync(path.join(root, '_build', 'js', 'release', 'build', 'web_bridge', 'web_bridge.js'), path.join(output, 'moontile.mjs'));
+console.log(`Built ${output}`);

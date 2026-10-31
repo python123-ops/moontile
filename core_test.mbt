@@ -1,0 +1,95 @@
+///|
+fn detection(
+  id : Int,
+  tile_id : Int,
+  class_id : Int,
+  score : Double,
+  x1 : Double,
+  y1 : Double,
+  x2 : Double,
+  y2 : Double,
+) -> @moontile.Detection {
+  { id, image_id: 1, tile_id, class_id, score, box: { x1, y1, x2, y2, }, }
+}
+
+///|
+test "tile coverage and edge anchoring" {
+  let tiles = @moontile.plan_tiles(100, 70, 60, 40, 20, 10).unwrap()
+  assert_eq(tiles.length(), 4)
+  assert_eq(tiles[3].x, 40)
+  assert_eq(tiles[3].y, 30)
+  assert_eq(tiles[3].id, 3)
+  let small = @moontile.plan_tiles(10, 5, 60, 40, 20, 10).unwrap()
+  assert_eq(small.length(), 1)
+  assert_eq(small[0].width, 10)
+  assert_eq(small[0].height, 5)
+  assert_true(@moontile.plan_tiles(100, 70, 60, 40, 60, 0) is Err(_))
+  assert_true(@moontile.plan_tiles(0, 70, 60, 40, 0, 0) is Err(_))
+}
+
+///|
+test "restore and reject invalid inputs" {
+  let tile : @moontile.Tile = { id: 2, x: 40, y: 30, width: 60, height: 40, }
+  let sample = detection(4, 2, 0, 0.8, 10.0, 5.0, 20.0, 12.0)
+  let global = @moontile.restore(tile, sample, 100, 70).unwrap()
+  assert_eq(global.box.x1, 50.0)
+  assert_eq(global.box.y2, 42.0)
+  assert_eq(global.id, 4)
+  let outside = detection(4, 2, 0, 0.8, -1.0, 5.0, 20.0, 12.0)
+  assert_true(@moontile.restore(tile, outside, 100, 70) is Err(_))
+  let wrong_tile = detection(4, 3, 0, 0.8, 1.0, 5.0, 20.0, 12.0)
+  assert_true(@moontile.restore(tile, wrong_tile, 100, 70) is Err(_))
+}
+
+///|
+test "NMS class, ties, threshold and provenance" {
+  let a = detection(7, 0, 0, 0.9, 0.0, 0.0, 10.0, 10.0)
+  let b = detection(8, 1, 0, 0.9, 0.0, 0.0, 10.0, 10.0)
+  let c = detection(9, 1, 1, 0.8, 0.0, 0.0, 10.0, 10.0)
+  let merged = @moontile.suppress([a, b, c], 0.5, IoU).unwrap()
+  assert_eq(merged.kept.length(), 2)
+  assert_eq(merged.kept[0].id, 7)
+  assert_eq(merged.suppressed[0].suppressed_id, 8)
+  assert_eq(merged.suppressed[0].kept_id, 7)
+  assert_eq(@moontile.suppress([a, b], 1.0, IoU).unwrap().kept.length(), 2)
+  assert_eq(
+    @moontile.suppress([a, c], 0.5, IoU, class_agnostic=true).unwrap().kept.length(),
+    1,
+  )
+  assert_true(@moontile.suppress([a, a], 0.5, IoU) is Err(_))
+}
+
+///|
+test "IoS, invalid score and image separation" {
+  let a = detection(1, 0, 0, 0.9, 0.0, 0.0, 10.0, 10.0)
+  let b = detection(2, 1, 0, 0.8, 0.0, 0.0, 5.0, 5.0)
+  assert_eq(@moontile.suppress([a, b], 0.5, IoU).unwrap().kept.length(), 2)
+  assert_eq(@moontile.suppress([a, b], 0.5, IoS).unwrap().kept.length(), 1)
+  let other : @moontile.Detection = { ..b, image_id: 2, }
+  assert_eq(@moontile.suppress([a, other], 0.5, IoS).unwrap().kept.length(), 2)
+  let bad : @moontile.Detection = { ..b, score: 0.0 / 0.0, }
+  assert_true(@moontile.suppress([a, bad], 0.5, IoU) is Err(_))
+  assert_true(@moontile.suppress([a], 1.1, IoU) is Err(_))
+}
+
+///|
+test "empty tiles, exact coverage and JSON rejection" {
+  let tiles = @moontile.plan_tiles(120, 40, 60, 40, 0, 0).unwrap()
+  assert_eq(tiles.length(), 2)
+  assert_eq(tiles[1].x, 60)
+  assert_true(@moontile.process_json("{") is Err(_))
+  let invalid =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":99,"y":0,"width":2,"height":1},"detections":[]}]}
+  assert_true(@moontile.process_json(invalid) is Err(_))
+  let empty =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[]}
+  assert_true(@moontile.process_json(empty) is Ok(_))
+}
+
+///|
+test "zero area and infinity are rejected" {
+  let degenerate = detection(1, 0, 0, 0.5, 2.0, 1.0, 2.0, 3.0)
+  let infinite = detection(2, 0, 0, 0.5, 1.0, 1.0, 1.0 / 0.0, 3.0)
+  assert_true(@moontile.suppress([degenerate], 0.5, IoU) is Err(_))
+  assert_true(@moontile.suppress([infinite], 0.5, IoU) is Err(_))
+}

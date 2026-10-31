@@ -1,0 +1,19 @@
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hustcer/setup-moonbit@v1.22
+        with:
+          version: 0.10.14+7d59c7ec9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: moon fmt --check
+      - run: moon check --target all --deny-warn
+      - run: moon test --target all --deny-warn
+      - run: moon -C examples/consumer test --target all --deny-warn
+      - run: node web/build.mjs && node web/test.mjs
+      - run: moon package

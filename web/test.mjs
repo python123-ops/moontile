@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {moontile_process} from '../_build/site/moontile.mjs';
+const source = readFileSync(new URL('../examples/input.json', import.meta.url), 'utf8');
+const browser = JSON.parse(moontile_process(source));
+const moon = process.platform === 'win32' ? 'moon.exe' : 'moon';
+const native = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/input.json'], {encoding:'utf8'});
+assert.equal(native.status, 0, native.stderr);
+assert.deepEqual(browser, JSON.parse(native.stdout));
+assert.equal(browser.kept.length, 2);
+assert.equal(browser.suppressed[0].suppressed_id, 2);
+assert.ok(JSON.parse(moontile_process('{')).error);
+console.log('Browser and native JSON outputs agree.');

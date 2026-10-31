@@ -1,0 +1,74 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "python123-ops/moontile"
+
+import {
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn plan_tiles(Int, Int, Int, Int, Int, Int) -> Result[Array[Tile], String]
+
+pub fn process_json(String) -> Result[String, String]
+
+pub fn restore(Tile, Detection, Int, Int) -> Result[Detection, String]
+
+pub fn suppress(Array[Detection], Double, Overlap, class_agnostic? : Bool) -> Result[MergeResult, String]
+
+// Errors
+
+// Types and methods
+pub(all) struct Box {
+  x1 : Double
+  y1 : Double
+  x2 : Double
+  y2 : Double
+} derive(ToJson, @json.FromJson)
+pub fn Box::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Box::to_json(Self) -> Json
+
+pub(all) struct Detection {
+  id : Int
+  image_id : Int
+  tile_id : Int
+  class_id : Int
+  score : Double
+  box : Box
+} derive(ToJson, @json.FromJson)
+pub fn Detection::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Detection::to_json(Self) -> Json
+
+pub(all) struct MergeResult {
+  kept : Array[Detection]
+  suppressed : Array[Suppression]
+}
+
+pub(all) enum Overlap {
+  IoU
+  IoS
+}
+
+type PipelineInput derive(@json.FromJson)
+pub fn PipelineInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+
+pub(all) struct Suppression {
+  suppressed_id : Int
+  kept_id : Int
+  overlap : Double
+}
+
+pub(all) struct Tile {
+  id : Int
+  x : Int
+  y : Int
+  width : Int
+  height : Int
+} derive(ToJson, @json.FromJson)
+pub fn Tile::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Tile::to_json(Self) -> Json
+
+type TileInput derive(@json.FromJson)
+pub fn TileInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+
+// Type aliases
+
+// Traits

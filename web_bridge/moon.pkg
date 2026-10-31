@@ -1,0 +1,11 @@
+import {
+  "python123-ops/moontile",
+}
+
+supported_targets = "js"
+
+pkgtype(kind: "foreign_library")
+
+options(
+  link: { "js": { "exports": [ "moontile_process" ], "format": "esm" } },
+)
