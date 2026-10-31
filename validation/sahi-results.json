@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "command": "python validation/sahi_compare.py --sahi-dir _build/sahi-reference --binary <native-cli> --output validation/sahi-results.json",
+  "python": "3.8.7",
+  "torch": "2.4.1+cpu",
+  "binary_sha256": "8473de43373966ad0afd1433a942fbe3acb354e78e18ca29217cf6db6badb918",
+  "reference": "SAHI 0.11.14 nms function",
+  "reference_commit": "0077a143abdabad2ac81eb375377c744662f7578",
+  "source_sha256": "2188c6496615f40033d1d2744fd0696f5a624f7628e32753c50a9d82c53902bb",
+  "seed": 20261101,
+  "cases": 80,
+  "boxes_per_case": 25,
+  "metrics": [
+    "iou",
+    "ios"
+  ],
+  "threshold": 0.5173,
+  "equality": {
+    "threshold": 1.0,
+    "sahi_kept": [
+      0
+    ],
+    "moontile_kept": [
+      0,
+      1
+    ]
+  },
+  "scope": "NMS only; distinct scores, single image and class; no claim for tiling or tie order"
+}

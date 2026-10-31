@@ -93,3 +93,16 @@ test "zero area and infinity are rejected" {
   assert_true(@moontile.suppress([degenerate], 0.5, IoU) is Err(_))
   assert_true(@moontile.suppress([infinite], 0.5, IoU) is Err(_))
 }
+
+///|
+test "restored box must remain representable after translation" {
+  let tile : @moontile.Tile = {
+    id: 0,
+    x: 2000000000,
+    y: 0,
+    width: 1,
+    height: 1,
+  }
+  let tiny = detection(1, 0, 0, 0.5, 0.0, 0.0, 0.00000001, 0.5)
+  assert_true(@moontile.restore(tile, tiny, 2000000001, 1) is Err(_))
+}

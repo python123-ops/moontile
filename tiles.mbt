@@ -85,8 +85,14 @@ pub fn restore(
   }
   let dx = tile.x.to_double()
   let dy = tile.y.to_double()
-  Ok({
-    ..detection,
-    box: { x1: b.x1 + dx, y1: b.y1 + dy, x2: b.x2 + dx, y2: b.y2 + dy, },
-  })
+  let translated = {
+    x1: b.x1 + dx,
+    y1: b.y1 + dy,
+    x2: b.x2 + dx,
+    y2: b.y2 + dy,
+  }
+  if !valid_box(translated) {
+    return Err("translated box lost positive area or is not finite")
+  }
+  Ok({ ..detection, box: translated, })
 }

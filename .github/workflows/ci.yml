@@ -11,6 +11,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: moon update
       - run: moon fmt --check
       - run: moon check --target all --deny-warn
       - run: moon test --target all --deny-warn
