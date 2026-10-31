@@ -30,7 +30,9 @@ test "merged detection feeds tracking and evaluation" {
 test "COCO pipeline output is consumable by MoonDetEval" {
   let source =
     #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":100,"height":60},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.95,"box":{"x1":45,"y1":10,"x2":58,"y2":30}}]}]}
-  let result = @moontile.process_coco_json(source, "[{\"class_id\":0,\"category_id\":7}]").unwrap()
+  let result = @moontile.process_coco_json(
+    source, "[{\"class_id\":0,\"category_id\":7}]",
+  ).unwrap()
   let predictions = @moondeteval.parse_coco_detections(result)
   let box = @moondeteval.Box::from_xywh(45.0, 10.0, 13.0, 20.0)
   let dataset = @moondeteval.Dataset::new(
@@ -39,4 +41,21 @@ test "COCO pipeline output is consumable by MoonDetEval" {
     [@moondeteval.GroundTruth::new(1L, 1, 7, box, area=260.0)],
   )
   assert_eq(@moondeteval.evaluate(dataset, predictions).summary().ap50(), 1.0)
+}
+
+///|
+test "MBMOT replay consumes two frames of tile results" {
+  let source =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":60,"height":60},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.95,"box":{"x1":45,"y1":10,"x2":58,"y2":30}}]},{"tile":{"id":1,"x":40,"y":0,"width":60,"height":60},"detections":[{"id":2,"image_id":1,"tile_id":1,"class_id":0,"score":0.85,"box":{"x1":5,"y1":10,"x2":18,"y2":30}}]}]}
+  let first = @moontile.process_mbmot_json(source, 1).unwrap()
+  let second = @moontile.process_mbmot_json(source, 2).unwrap()
+  let frame1 = @replay_codec.parse_frame_line(first)
+  let frame2 = @replay_codec.parse_frame_line(second)
+  assert_eq(frame1.detections().length(), 1)
+  assert_eq(frame2.detections().length(), 1)
+  let tracker = @mbmot.Tracker::new(@mbmot.TrackerConfig::default())
+  let track1 = tracker.update(frame1.frame(), frame1.detections()).tracks()[0]
+  let track2 = tracker.update(frame2.frame(), frame2.detections()).tracks()[0]
+  assert_eq(track1.track_id(), track2.track_id())
+  assert_eq(track2.hits(), 2)
 }

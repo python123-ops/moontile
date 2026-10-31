@@ -136,3 +136,41 @@ test "COCO pipeline rejects malformed mappings" {
   assert_true(@moontile.process_coco_json(input, "{}") is Err(_))
   assert_eq(@moontile.process_coco_json(input, "[]").unwrap(), "[]")
 }
+
+///|
+test "MBMOT export validates frame, identities and detection fields" {
+  let a = detection(1, 0, 0, 0.9, 2.0, 3.0, 7.0, 9.0)
+  let b = detection(2, 0, 1, 0.8, 4.0, 5.0, 8.0, 10.0)
+  let encoded = @moontile.export_mbmot([a, b], 42).unwrap()
+  assert_eq(
+    encoded, "{\"frame\":42,\"detections\":[{\"xyxy\":[2,3,7,9],\"score\":0.9,\"class_id\":0},{\"xyxy\":[4,5,8,10],\"score\":0.8,\"class_id\":1}]}",
+  )
+  assert_eq(
+    @moontile.export_mbmot([], 1).unwrap(),
+    "{\"frame\":1,\"detections\":[]}",
+  )
+  assert_true(@moontile.export_mbmot([a], 0) is Err(_))
+  assert_true(@moontile.export_mbmot([a, a], 1) is Err(_))
+  let other : @moontile.Detection = { ..b, image_id: 2, }
+  assert_true(@moontile.export_mbmot([a, other], 1) is Err(_))
+  let bad : @moontile.Detection = { ..b, score: 1.1, }
+  assert_true(@moontile.export_mbmot([bad], 1) is Err(_))
+}
+
+///|
+test "MBMOT pipeline rejects mixed image IDs" {
+  let input =
+    #|{"image_width":10,"image_height":10,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":10,"height":10},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.9,"box":{"x1":0,"y1":0,"x2":5,"y2":5}},{"id":2,"image_id":2,"tile_id":0,"class_id":0,"score":0.8,"box":{"x1":0,"y1":0,"x2":5,"y2":5}}]}]}
+  assert_true(@moontile.process_mbmot_json(input, 1) is Err(_))
+  assert_true(@moontile.process_mbmot_json(input, -1) is Err(_))
+}
+
+///|
+test "MBMOT pipeline retains original order after score-ranked suppression" {
+  let input =
+    #|{"image_width":10,"image_height":10,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":10,"height":10},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.5,"box":{"x1":0,"y1":0,"x2":2,"y2":2}},{"id":2,"image_id":1,"tile_id":0,"class_id":0,"score":0.9,"box":{"x1":5,"y1":5,"x2":7,"y2":7}}]}]}
+  let output = @moontile.process_mbmot_json(input, 1).unwrap()
+  assert_eq(
+    output, "{\"frame\":1,\"detections\":[{\"xyxy\":[0,0,2,2],\"score\":0.5,\"class_id\":0},{\"xyxy\":[5,5,7,7],\"score\":0.9,\"class_id\":0}]}",
+  )
+}

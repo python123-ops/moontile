@@ -8,11 +8,15 @@ import {
 // Values
 pub fn export_coco(Array[Detection], Array[CategoryMapping]) -> Result[String, String]
 
+pub fn export_mbmot(Array[Detection], Int) -> Result[String, String]
+
 pub fn plan_tiles(Int, Int, Int, Int, Int, Int) -> Result[Array[Tile], String]
 
 pub fn process_coco_json(String, String) -> Result[String, String]
 
 pub fn process_json(String) -> Result[String, String]
+
+pub fn process_mbmot_json(String, Int) -> Result[String, String]
 
 pub fn restore(Tile, Detection, Int, Int) -> Result[Detection, String]
 

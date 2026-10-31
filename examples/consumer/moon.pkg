@@ -3,3 +3,7 @@ import {
   "python123-ops/mbmot",
   "python123-ops/moondeteval",
 }
+
+import {
+  "python123-ops/mbmot/replay_codec",
+} for "wbtest"

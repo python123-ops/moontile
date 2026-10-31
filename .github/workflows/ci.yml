@@ -14,6 +14,7 @@ jobs:
           node-version: 22
       - run: moon update
       - run: moon fmt --check
+      - run: moon -C examples/consumer fmt --check
       - run: moon check --target all --deny-warn
       - run: moon test --target all --deny-warn
       - run: moon -C examples/consumer test --target all --deny-warn

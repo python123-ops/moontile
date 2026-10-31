@@ -25,4 +25,18 @@ const invalidMap = spawnSync(moon, ['run','cmd/main','--target','native','--','e
 assert.notEqual(invalidMap.status, 0);
 assert.equal(invalidMap.stdout, '');
 assert.match(invalidMap.stderr, /invalid mapping fields/);
+for (const frame of [1, 2]) {
+  const tracking = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/input.json','--mbmot-frame',String(frame)], {encoding:'utf8'});
+  assert.equal(tracking.status, 0, tracking.stderr);
+  assert.deepEqual(JSON.parse(tracking.stdout), {frame, detections:[
+    {xyxy:[45,10,58,30], score:0.95, class_id:0},
+    {xyxy:[70,20,80,40], score:0.8, class_id:1},
+  ]});
+}
+for (const frame of ['0', '-1', '1.5', '2147483648', 'not-a-frame']) {
+  const bad = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/input.json','--mbmot-frame',frame], {encoding:'utf8'});
+  assert.notEqual(bad.status, 0);
+  assert.equal(bad.stdout, '');
+  assert.match(bad.stderr, /frame must/);
+}
 console.log('Browser and native JSON outputs agree.');
