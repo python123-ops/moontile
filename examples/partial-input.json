@@ -1,0 +1,16 @@
+{
+  "image_width": 100,
+  "image_height": 60,
+  "threshold": 0.5,
+  "metric": "ios",
+  "class_agnostic": false,
+  "strategy": "greedy_nmm",
+  "tiles": [
+    {"tile":{"id":0,"x":0,"y":0,"width":60,"height":60},"detections":[
+      {"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.95,"box":{"x1":45,"y1":10,"x2":60,"y2":30}}
+    ]},
+    {"tile":{"id":1,"x":40,"y":0,"width":60,"height":60},"detections":[
+      {"id":2,"image_id":1,"tile_id":1,"class_id":0,"score":0.85,"box":{"x1":10,"y1":10,"x2":30,"y2":30}}
+    ]}
+  ]
+}

@@ -25,6 +25,20 @@ const invalidMap = spawnSync(moon, ['run','cmd/main','--target','native','--','e
 assert.notEqual(invalidMap.status, 0);
 assert.equal(invalidMap.stdout, '');
 assert.match(invalidMap.stderr, /invalid mapping fields/);
+const merged = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/partial-input.json'], {encoding:'utf8'});
+assert.equal(merged.status, 0, merged.stderr);
+const mergedReport = JSON.parse(merged.stdout);
+const browserMerged = JSON.parse(moontile_process(readFileSync(new URL('../examples/partial-input.json', import.meta.url), 'utf8')));
+assert.deepEqual(browserMerged, mergedReport);
+assert.equal(mergedReport.kept.length, 1);
+assert.deepEqual(mergedReport.kept[0].box, {x1:45,y1:10,x2:70,y2:30});
+assert.equal(mergedReport.suppressed[0].suppressed_id, 2);
+const mergedCoco = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/partial-input.json','--coco-map','examples/coco-map.json'], {encoding:'utf8'});
+assert.equal(mergedCoco.status, 0, mergedCoco.stderr);
+assert.deepEqual(JSON.parse(mergedCoco.stdout), [{image_id:1,category_id:7,bbox:[45,10,25,20],score:0.95}]);
+const mergedTracking = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/partial-input.json','--mbmot-frame','1'], {encoding:'utf8'});
+assert.equal(mergedTracking.status, 0, mergedTracking.stderr);
+assert.deepEqual(JSON.parse(mergedTracking.stdout), {frame:1,detections:[{xyxy:[45,10,70,30],score:0.95,class_id:0}]});
 for (const frame of [1, 2]) {
   const tracking = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/input.json','--mbmot-frame',String(frame)], {encoding:'utf8'});
   assert.equal(tracking.status, 0, tracking.stderr);

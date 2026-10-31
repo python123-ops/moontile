@@ -81,3 +81,24 @@ test "stream output is accepted by MBMOT replay session" {
   assert_true(out2.contains("\"track_id\":1"))
   assert_true(out2.contains("\"hits\":2"))
 }
+
+///|
+test "merged tile envelope reaches both MBMOT and MoonDetEval" {
+  let source =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"ios","class_agnostic":false,"strategy":"greedy_nmm","tiles":[{"tile":{"id":0,"x":0,"y":0,"width":60,"height":60},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.95,"box":{"x1":45,"y1":10,"x2":60,"y2":30}}]},{"tile":{"id":1,"x":40,"y":0,"width":60,"height":60},"detections":[{"id":2,"image_id":1,"tile_id":1,"class_id":0,"score":0.85,"box":{"x1":10,"y1":10,"x2":30,"y2":30}}]}]}
+  let tracking = @replay_codec.parse_frame_line(
+    @moontile.process_mbmot_json(source, 1).unwrap(),
+  )
+  assert_eq(tracking.detections().length(), 1)
+  assert_eq(tracking.detections()[0].bbox().x2(), 70.0)
+  let prediction = @moondeteval.parse_coco_detections(
+    @moontile.process_coco_json(source, "[{\"class_id\":0,\"category_id\":7}]").unwrap(),
+  )
+  let truth = @moondeteval.Box::from_xywh(45.0, 10.0, 25.0, 20.0)
+  let dataset = @moondeteval.Dataset::new(
+    [@moondeteval.Image::new(1, 100, 60)],
+    [@moondeteval.Category::new(7, "object")],
+    [@moondeteval.GroundTruth::new(1L, 1, 7, truth, area=500.0)],
+  )
+  assert_eq(@moondeteval.evaluate(dataset, prediction).summary().ap50(), 1.0)
+}

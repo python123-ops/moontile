@@ -198,3 +198,48 @@ test "stream rejects errors without advancing and allows reset" {
   assert_true(session.last_frame() is None)
   assert_true(session.process_line(first) is Ok(_))
 }
+
+///|
+test "envelope merging uses the original seed rather than transitive overlap" {
+  let a = detection(1, 0, 0, 0.9, 0.0, 0.0, 10.0, 10.0)
+  let b = detection(2, 1, 0, 0.8, 8.0, 0.0, 18.0, 10.0)
+  let c = detection(3, 2, 0, 0.7, 16.0, 0.0, 26.0, 10.0)
+  let result = @moontile.merge_envelopes([a, b, c], 0.15, IoS).unwrap()
+  assert_eq(result.kept.length(), 2)
+  assert_eq(result.kept[0].id, 1)
+  assert_eq(result.kept[0].box.x1, 0.0)
+  assert_eq(result.kept[0].box.x2, 18.0)
+  assert_eq(result.kept[0].score, 0.9)
+  assert_eq(result.kept[1].id, 3)
+  assert_eq(result.suppressed[0].kept_id, 1)
+  assert_eq(result.suppressed[0].suppressed_id, 2)
+  assert_eq(
+    @moontile.merge_envelopes([a, b], 0.2, IoS).unwrap().kept.length(),
+    2,
+  )
+}
+
+///|
+test "envelope merging isolates images and classes and rejects bad values" {
+  let a = detection(1, 0, 0, 0.9, 0.0, 0.0, 10.0, 10.0)
+  let b = detection(2, 1, 1, 0.9, 0.0, 0.0, 10.0, 10.0)
+  let other : @moontile.Detection = { ..b, id: 3, image_id: 2, }
+  assert_eq(
+    @moontile.merge_envelopes([a, b], 0.5, IoU).unwrap().kept.length(),
+    2,
+  )
+  let agnostic = @moontile.merge_envelopes(
+    [a, b, other],
+    0.5,
+    IoU,
+    class_agnostic=true,
+  ).unwrap()
+  assert_eq(agnostic.kept.length(), 2)
+  assert_eq(agnostic.kept[0].id, 1)
+  assert_eq(agnostic.kept[0].class_id, 0)
+  assert_true(@moontile.merge_envelopes([a, a], 0.5, IoU) is Err(_))
+  assert_true(@moontile.merge_envelopes([a], 1.1, IoU) is Err(_))
+  let wide = detection(4, 0, 0, 0.9, 0.0, 0.0, 1.0e308, 1.0)
+  let tall = detection(5, 0, 0, 0.8, 0.0, 0.0, 1.0, 1.0e308)
+  assert_true(@moontile.merge_envelopes([wide, tall], 0.0, IoS) is Err(_))
+}

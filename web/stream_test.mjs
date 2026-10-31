@@ -47,4 +47,15 @@ const withoutTrailingNewline = spawnSync(moon, ['run','cmd/main','--target','nat
   {encoding:'utf8', input:lines[0]});
 assert.equal(withoutTrailingNewline.status, 0);
 assert.equal(JSON.parse(withoutTrailingNewline.stdout).frame, 1);
+const partial = JSON.parse(readFileSync(new URL('../examples/partial-input.json', import.meta.url), 'utf8'));
+const streamMerged = spawnSync(moon, ['run','cmd/main','--target','native','--','--mbmot-stream'],
+  {encoding:'utf8', input:JSON.stringify({frame:1,input:partial}) + '\n'});
+assert.equal(streamMerged.status, 0, streamMerged.stderr);
+assert.deepEqual(JSON.parse(streamMerged.stdout).detections[0].xyxy, [45,10,70,30]);
+partial.strategy = 'unknown';
+const unsupported = spawnSync(moon, ['run','cmd/main','--target','native','--','--mbmot-stream'],
+  {encoding:'utf8', input:JSON.stringify({frame:1,input:partial}) + '\n'});
+assert.notEqual(unsupported.status, 0);
+assert.equal(unsupported.stdout, '');
+assert.match(unsupported.stderr, /strategy must be nms or greedy_nmm/);
 console.log('Live stream emits complete frames before EOF and preserves its valid prefix.');

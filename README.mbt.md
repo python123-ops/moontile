@@ -7,6 +7,7 @@ MoonTile 将多个图像切片上的目标检测框还原到原图坐标，并�
 ```sh
 moon test --target all --deny-warn
 moon run cmd/main --target native -- examples/input.json
+moon run cmd/main --target native -- examples/partial-input.json
 moon run cmd/main --target native -- examples/input.json --coco-map examples/coco-map.json
 moon run cmd/main --target native -- examples/input.json --mbmot-frame 1
 moon -C examples/consumer test --target all --deny-warn
@@ -25,7 +26,9 @@ node web/stream_test.mjs
 
 `suppress(detections, threshold, metric, class_agnostic=...)` 按得分降序执行贪心 NMS，同分保持输入顺序。默认按图像和类别分别处理；`class_agnostic=true` 只取消类别隔离，图像之间仍互不影响。支持 IoU 和交集除以较小框面积的 IoS，重叠度 **严格大于** 阈值时抑制。检测 ID 在同一调用中必须唯一，返回的抑制记录指出保留框 ID、被抑制框 ID 和重叠度。处理前会验证整个输入，错误不会返回部分结果。当前实现最坏需要比较二次方数量的框；CLI 一次读取完整文件，大规模输入应由调用方按图像拆分和限制大小。
 
-`process_json` 使用 [examples/input.json](examples/input.json) 所示结构：每组包含窗口和属于该窗口的局部预测，返回 `restored`、`kept` 和 `suppressed`。CLI 用这个 API 执行同一流程；空切片同样会校验。序列处理时可逐帧调用，并自行保证帧号和跟踪器状态。
+对于跨切片的部分框，可以选择 `merge_envelopes`：先按分数和输入顺序选出种子，将与**原始种子框**重叠度严格超过阈值的框归入同一组，并输出覆盖整组的外接框。匹配不使用不断扩大的外接框，也不进行传递合并；代表框保留种子的 ID、图像、切片、类别与最高分，其他成员及其与种子的重叠度记录在 `suppressed` 中。默认按图像和类别隔离；`class_agnostic=true` 时可以跨类别合并，输出仍采用种子的类别。高重叠目标可能被合为一个框，阈值需结合具体数据验证。
+
+`process_json` 使用 [examples/input.json](examples/input.json) 所示结构：每组包含窗口和属于该窗口的局部预测，返回 `restored`、`kept` 和 `suppressed`。可选字段 `strategy` 默认是 `"nms"`；设置为 `"greedy_nmm"` 后输出外接框，示例见 [examples/partial-input.json](examples/partial-input.json)。在合并策略下，`suppressed` 的记录表示被归入代表框的成员，`overlap` 相对于原始种子框。相同输入也能使用 COCO 导出、MBMOT 导出和流处理。CLI 用这些 API 执行同一流程；空切片同样会校验。序列处理时可逐帧调用，并自行保证帧号和跟踪器状态。
 
 需要把合并结果交给 MoonDetEval 或其他 COCO bbox 评估器时，CLI 增加 `--coco-map`，输出 COCO 检测结果数组而不是诊断对象。映射文件是 `[{"class_id":0,"category_id":7}]` 形式的 JSON 数组；完整示例见 [examples/coco-map.json](examples/coco-map.json)。每个保留框的类别都必须有映射，重复的 `class_id`、负数 ID、格式错误和缺失映射会使命令报错，标准输出保持为空。多个 class 可以映射到同一个 category；类别映射发生在 NMS 之后，不影响原有的按检测类别去重。输出的 `bbox` 使用连续 `xywh`，顺序与保留结果一致，不裁剪，也不包含 MoonTile 内部检测 ID。
 
@@ -51,7 +54,7 @@ MoonBit 调用方也可用 `StreamSession::new()` 和 `process_line` 逐行处�
 
 浏览器与原生 CLI 的 JSON 输出由 `web/test.mjs` 对照；核心测试覆盖切片、还原、NMS、类别隔离、同分、边界和非法输入。
 
-`validation/sahi_compare.py` 从固定的 SAHI 0.11.14 源码中提取原始 NMS 函数，并以 PyTorch 运行参考实现。固定种子的 80 组、每组 25 框的单图单类别无同分场景覆盖 IoU 和 IoS；结果见 `validation/sahi-results.json`。本库在重叠度等于阈值时保留，SAHI 0.11.14 在相等时抑制；脚本单独验证这一差异。本对照未涵盖切片布局、多类别或同分行为。
+`validation/sahi_compare.py` 从固定的 SAHI 0.11.14 源码中提取原始 NMS 和贪心 NMM 分组函数，并以 PyTorch 运行参考实现。固定种子的 80 组、每组 25 框的单图单类别无同分场景覆盖 IoU 和 IoS；NMM 外接框另按组内坐标核对，结果见 `validation/sahi-results.json`。本库在重叠度等于阈值时保留，SAHI 0.11.14 在相等时抑制或合并；脚本单独验证这一差异。本对照未涵盖切片布局、多类别、掩码或同分行为。
 
 `validation/real_coco.py` 使用先前保存的 COCO val2017 标注和 YOLO11n 整图预测，先核对文件哈希，再将整张图作为单个切片重放。已运行 10 张图、2136 个预测，pycocotools 的 12 项 bbox 指标在重放和 COCO 导出后均与原结果一致；记录见 `validation/real-coco-results.json`。这验证真实整图数据的坐标和评估链路，不是逐切片推理或精度提升验证。真实逐切片预测数据仍未取得。
 

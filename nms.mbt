@@ -16,14 +16,10 @@ fn overlap_value(a : Box, b : Box, metric : Overlap) -> Double {
 }
 
 ///|
-/// Greedy NMS per image and class. Suppresses when overlap > threshold.
-/// Equal scores retain input order. IDs must be unique in the whole batch.
-pub fn suppress(
+fn rank_detections(
   detections : Array[Detection],
   threshold : Double,
-  metric : Overlap,
-  class_agnostic? : Bool = false,
-) -> Result[MergeResult, String] {
+) -> Result[Array[(Int, Detection)], String] {
   if !finite(threshold) || threshold < 0.0 || threshold > 1.0 {
     return Err("threshold must be finite and in [0,1]")
   }
@@ -54,6 +50,22 @@ pub fn suppress(
       a.0.compare(b.0)
     }
   })
+  Ok(ranked)
+}
+
+///|
+/// Greedy NMS per image and class. Suppresses when overlap > threshold.
+/// Equal scores retain input order. IDs must be unique in the whole batch.
+pub fn suppress(
+  detections : Array[Detection],
+  threshold : Double,
+  metric : Overlap,
+  class_agnostic? : Bool = false,
+) -> Result[MergeResult, String] {
+  let ranked = match rank_detections(detections, threshold) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
   let kept : Array[Detection] = []
   let suppressed : Array[Suppression] = []
   for (_, candidate) in ranked {

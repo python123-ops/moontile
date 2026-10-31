@@ -14,6 +14,7 @@ struct PipelineInput {
   threshold : Double
   metric : String
   class_agnostic : Bool
+  strategy : String?
   tiles : Array[TileInput]
 } derive(FromJson)
 
@@ -67,13 +68,24 @@ fn process_data(source : String) -> Result[Processed, String] {
   if input.image_width <= 0 || input.image_height <= 0 {
     return Err("invalid image dimensions")
   }
-  let result = match
-    suppress(
-      restored,
-      input.threshold,
-      metric,
-      class_agnostic=input.class_agnostic,
-    ) {
+  let merged = match input.strategy {
+    None | Some("nms") =>
+      suppress(
+        restored,
+        input.threshold,
+        metric,
+        class_agnostic=input.class_agnostic,
+      )
+    Some("greedy_nmm") =>
+      merge_envelopes(
+        restored,
+        input.threshold,
+        metric,
+        class_agnostic=input.class_agnostic,
+      )
+    Some(_) => return Err("strategy must be nms or greedy_nmm")
+  }
+  let result = match merged {
     Ok(value) => value
     Err(message) => return Err(message)
   }

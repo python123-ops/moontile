@@ -3,8 +3,8 @@
   "command": "python validation/sahi_compare.py --sahi-dir _build/sahi-reference --binary <native-cli> --output validation/sahi-results.json",
   "python": "3.8.7",
   "torch": "2.4.1+cpu",
-  "binary_sha256": "a06237beb85194cc2f91c75cb40502684b6a8a2a511174e5208b2e485d4f8a67",
-  "reference": "SAHI 0.11.14 nms function",
+  "binary_sha256": "4cb33696fede99cbdfceee4079e7887112b53b52820a19aaead968dade06cc88",
+  "reference": "SAHI 0.11.14 nms and greedy_nmm grouping functions",
   "reference_commit": "0077a143abdabad2ac81eb375377c744662f7578",
   "source_sha256": "2188c6496615f40033d1d2744fd0696f5a624f7628e32753c50a9d82c53902bb",
   "seed": 20261101,
@@ -25,5 +25,19 @@
       1
     ]
   },
-  "scope": "NMS only; distinct scores, single image and class; no claim for tiling or tie order"
+  "nmm_equality": {
+    "threshold": 1.0,
+    "sahi_groups": {
+      "0": [
+        1
+      ]
+    },
+    "moontile_kept": [
+      0,
+      1
+    ]
+  },
+  "nms_cases": 80,
+  "nmm_cases": 80,
+  "scope": "NMS and greedy NMM grouping only; distinct scores, single image and class; no claim for tiling, masks or tie order"
 }

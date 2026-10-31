@@ -74,14 +74,15 @@ pub fn process_mbmot_json(
   if !single_image(processed.restored) {
     return Err("one frame cannot contain multiple image IDs")
   }
-  let kept_ids : Set[Int] = Set([])
+  let kept_by_id : Map[Int, Detection] = Map([])
   for detection in processed.merged.kept {
-    kept_ids.add(detection.id)
+    kept_by_id[detection.id] = detection
   }
   let ordered : Array[Detection] = []
   for detection in processed.restored {
-    if kept_ids.contains(detection.id) {
-      ordered.push(detection)
+    match kept_by_id.get(detection.id) {
+      Some(merged) => ordered.push(merged)
+      None => ()
     }
   }
   export_mbmot(ordered, frame)

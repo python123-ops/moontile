@@ -3,7 +3,7 @@
   "command": "python validation/real_coco.py --ground-truth <ground_truth.json> --predictions <predictions.json> --provenance <results.json> --binary <native-cli> --count 10 --output validation/real-coco-results.json",
   "python": "3.8.7",
   "pycocotools": "2.0.7",
-  "binary_sha256": "a06237beb85194cc2f91c75cb40502684b6a8a2a511174e5208b2e485d4f8a67",
+  "binary_sha256": "4cb33696fede99cbdfceee4079e7887112b53b52820a19aaead968dade06cc88",
   "dataset": "COCO 2017 validation instances",
   "annotation_url": "https://huggingface.co/datasets/pcuenq/coco2017-instances/resolve/main/instances_val2017.json",
   "model": "Ultralytics YOLO11n COCO pretrained",

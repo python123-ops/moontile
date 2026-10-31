@@ -1,4 +1,4 @@
-"""Compare MoonTile CLI with the unmodified SAHI 0.11.14 NMS function.
+"""Compare MoonTile CLI with unmodified SAHI 0.11.14 NMS/NMM functions.
 
 Usage: python validation/sahi_compare.py --sahi-dir PATH --binary PATH --output PATH
 The reference function is extracted from its pinned source AST because importing
@@ -31,13 +31,14 @@ def main():
         raise SystemExit(f"SAHI checkout must be {REVISION}, got {revision}")
     source = (args.sahi_dir / "sahi/postprocess/combine.py").read_text(encoding="utf8")
     tree = ast.parse(source)
-    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "nms"]
-    if len(functions) != 1:
-        raise SystemExit("expected exactly one SAHI nms function")
+    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"nms", "greedy_nmm"}]
+    if {node.name for node in functions} != {"nms", "greedy_nmm"} or len(functions) != 2:
+        raise SystemExit("expected one SAHI nms and one greedy_nmm function")
     module = ast.fix_missing_locations(ast.Module(body=functions, type_ignores=[]))
     namespace = {"torch": torch}
     exec(compile(module, "sahi/postprocess/combine.py", "exec"), namespace)
     reference_nms = namespace["nms"]
+    reference_nmm = namespace["greedy_nmm"]
     rng = random.Random(SEED)
     cases = 0
     with tempfile.TemporaryDirectory(prefix="moontile-sahi-") as temp:
@@ -63,6 +64,22 @@ def main():
                 ids = [record["id"] for record in actual["kept"]]
                 if ids != expected:
                     raise AssertionError(f"case={case} metric={metric}: MoonTile={ids}, SAHI={expected}")
+                request["strategy"] = "greedy_nmm"
+                input_path.write_text(json.dumps(request), encoding="utf8")
+                combined = json.loads(subprocess.check_output([str(args.binary.resolve()), str(input_path)], text=True))
+                groups = reference_nmm(torch.tensor(rows, dtype=torch.float64), metric.upper(), 0.5173)
+                if [item["id"] for item in combined["kept"]] != list(groups):
+                    raise AssertionError(f"case={case} metric={metric}: NMM seed order differs")
+                for seed, members in groups.items():
+                    observed = [item["suppressed_id"] for item in combined["suppressed"] if item["kept_id"] == seed]
+                    if observed != members:
+                        raise AssertionError(f"case={case} metric={metric} seed={seed}: NMM members differ")
+                    group_rows = [rows[index] for index in [seed, *members]]
+                    expected_box = [min(r[0] for r in group_rows), min(r[1] for r in group_rows),
+                                    max(r[2] for r in group_rows), max(r[3] for r in group_rows)]
+                    box = next(item["box"] for item in combined["kept"] if item["id"] == seed)
+                    if [box["x1"], box["y1"], box["x2"], box["y2"]] != expected_box:
+                        raise AssertionError(f"case={case} metric={metric} seed={seed}: NMM envelope differs")
                 cases += 1
         # SAHI suppresses at equality; MoonTile deliberately retains it.
         rows = [[0, 0, 10, 10, 0.9, 0], [0, 0, 10, 10, 0.8, 0]]
@@ -74,13 +91,21 @@ def main():
         input_path.write_text(json.dumps(request), encoding="utf8")
         equality_moon = json.loads(subprocess.check_output([str(args.binary.resolve()), str(input_path)], text=True))["kept"]
         assert equality_sahi == [0] and [item["id"] for item in equality_moon] == [0, 1]
+        equality_nmm_sahi = reference_nmm(torch.tensor(rows, dtype=torch.float64), "IOU", 1.0)
+        request["strategy"] = "greedy_nmm"
+        input_path.write_text(json.dumps(request), encoding="utf8")
+        equality_nmm_moon = json.loads(subprocess.check_output([str(args.binary.resolve()), str(input_path)], text=True))["kept"]
+        assert equality_nmm_sahi == {0: [1]} and [item["id"] for item in equality_nmm_moon] == [0, 1]
     report = {"status": "passed", "command": "python validation/sahi_compare.py --sahi-dir _build/sahi-reference --binary <native-cli> --output validation/sahi-results.json",
               "python": sys.version.split()[0], "torch": torch.__version__, "binary_sha256": hashlib.sha256(args.binary.read_bytes()).hexdigest(),
-              "reference": "SAHI 0.11.14 nms function", "reference_commit": REVISION,
+              "reference": "SAHI 0.11.14 nms and greedy_nmm grouping functions", "reference_commit": REVISION,
               "source_sha256": hashlib.sha256(source.encode()).hexdigest(), "seed": SEED, "cases": cases,
               "boxes_per_case": 25, "metrics": ["iou", "ios"], "threshold": 0.5173,
               "equality": {"threshold": 1.0, "sahi_kept": equality_sahi, "moontile_kept": [x["id"] for x in equality_moon]},
-              "scope": "NMS only; distinct scores, single image and class; no claim for tiling or tie order"}
+              "nmm_equality": {"threshold": 1.0, "sahi_groups": equality_nmm_sahi,
+                               "moontile_kept": [x["id"] for x in equality_nmm_moon]},
+              "nms_cases": cases, "nmm_cases": cases,
+              "scope": "NMS and greedy NMM grouping only; distinct scores, single image and class; no claim for tiling, masks or tie order"}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf8")
     print(json.dumps(report))
