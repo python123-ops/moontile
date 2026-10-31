@@ -7,6 +7,7 @@ MoonTile 将多个图像切片上的目标检测框还原到原图坐标，并�
 ```sh
 moon test --target all --deny-warn
 moon run cmd/main --target native -- examples/input.json
+moon run cmd/main --target native -- examples/input.json --coco-map examples/coco-map.json
 moon -C examples/consumer test --target all --deny-warn
 node web/build.mjs
 node web/test.mjs
@@ -24,6 +25,10 @@ node web/test.mjs
 
 `process_json` 使用 [examples/input.json](examples/input.json) 所示结构：每组包含窗口和属于该窗口的局部预测，返回 `restored`、`kept` 和 `suppressed`。CLI 用这个 API 执行同一流程；空切片同样会校验。序列处理时可逐帧调用，并自行保证帧号和跟踪器状态。
 
+需要把合并结果交给 MoonDetEval 或其他 COCO bbox 评估器时，CLI 增加 `--coco-map`，输出 COCO 检测结果数组而不是诊断对象。映射文件是 `[{"class_id":0,"category_id":7}]` 形式的 JSON 数组；完整示例见 [examples/coco-map.json](examples/coco-map.json)。每个保留框的类别都必须有映射，重复的 `class_id`、负数 ID、格式错误和缺失映射会使命令报错，标准输出保持为空。多个 class 可以映射到同一个 category；类别映射发生在 NMS 之后，不影响原有的按检测类别去重。输出的 `bbox` 使用连续 `xywh`，顺序与保留结果一致，不裁剪，也不包含 MoonTile 内部检测 ID。
+
+库调用可使用 `export_coco(detections, mappings)` 导出已有的原图坐标检测，或使用 `process_coco_json(source, mapping_source)` 一次完成还原、NMS 和导出。`export_coco` 保留输入顺序并检查重复检测 ID 和无效框，不会再次执行 NMS。
+
 ## 项目关联与验证
 
 `examples/consumer` 是独立 MoonBit 模块，通过 workspace 引用源码，固定已发布的 MBMOT 0.3.0 和 MoonDetEval 0.1.0，展示框转换、显式类别映射、跟踪和 AP50 评估。当前测试是合成样例，不代表模型精度。更高版本的 MoonDetEval 0.2.x 在本机 0.10.14 编译器上因 `Int32` 不可识别而未通过；不能将该 consumer 的结果推广到那些版本。
@@ -32,7 +37,7 @@ node web/test.mjs
 
 `validation/sahi_compare.py` 从固定的 SAHI 0.11.14 源码中提取原始 NMS 函数，并以 PyTorch 运行参考实现。固定种子的 80 组、每组 25 框的单图单类别无同分场景覆盖 IoU 和 IoS；结果见 `validation/sahi-results.json`。本库在重叠度等于阈值时保留，SAHI 0.11.14 在相等时抑制；脚本单独验证这一差异。本对照未涵盖切片布局、多类别或同分行为。
 
-`validation/real_coco.py` 使用先前保存的 COCO val2017 标注和 YOLO11n 整图预测，先核对文件哈希，再将整张图作为单个切片重放。已运行 10 张图、2136 个预测，pycocotools 的 12 项 bbox 指标重放前后一致；记录见 `validation/real-coco-results.json`。这验证真实整图数据的坐标和评估链路，不是逐切片推理或精度提升验证。真实逐切片预测数据仍未取得。
+`validation/real_coco.py` 使用先前保存的 COCO val2017 标注和 YOLO11n 整图预测，先核对文件哈希，再将整张图作为单个切片重放。已运行 10 张图、2136 个预测，pycocotools 的 12 项 bbox 指标在重放和 COCO 导出后均与原结果一致；记录见 `validation/real-coco-results.json`。这验证真实整图数据的坐标和评估链路，不是逐切片推理或精度提升验证。真实逐切片预测数据仍未取得。
 
 ## 边界与参考
 

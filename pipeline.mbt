@@ -21,8 +21,13 @@ struct PipelineInput {
 pub extend PipelineInput with @json.FromJson::{from_json}
 
 ///|
-/// Process one JSON document with local xyxy boxes and return the NMS trace.
-pub fn process_json(source : String) -> Result[String, String] {
+priv struct Processed {
+  restored : Array[Detection]
+  merged : MergeResult
+}
+
+///|
+fn process_data(source : String) -> Result[Processed, String] {
   let json = @json.parse(source) catch { _ => return Err("invalid JSON") }
   let input : PipelineInput = @json.from_json(json) catch {
     _ => return Err("invalid pipeline fields")
@@ -72,7 +77,17 @@ pub fn process_json(source : String) -> Result[String, String] {
     Ok(value) => value
     Err(message) => return Err(message)
   }
-  let trace = result.suppressed.map(fn(item) {
+  Ok({ restored, merged: result, })
+}
+
+///|
+/// Process one JSON document with local xyxy boxes and return the NMS trace.
+pub fn process_json(source : String) -> Result[String, String] {
+  let processed = match process_data(source) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
+  let trace = processed.merged.suppressed.map(fn(item) {
     Json::object({
       "suppressed_id": item.suppressed_id.to_json(),
       "kept_id": item.kept_id.to_json(),
@@ -81,8 +96,8 @@ pub fn process_json(source : String) -> Result[String, String] {
   })
   Ok(
     Json::object({
-      "restored": restored.to_json(),
-      "kept": result.kept.to_json(),
+      "restored": processed.restored.to_json(),
+      "kept": processed.merged.kept.to_json(),
       "suppressed": trace.to_json(),
     }).stringify(),
   )

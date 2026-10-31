@@ -3,7 +3,7 @@
   "command": "python validation/real_coco.py --ground-truth <ground_truth.json> --predictions <predictions.json> --provenance <results.json> --binary <native-cli> --count 10 --output validation/real-coco-results.json",
   "python": "3.8.7",
   "pycocotools": "2.0.7",
-  "binary_sha256": "8473de43373966ad0afd1433a942fbe3acb354e78e18ca29217cf6db6badb918",
+  "binary_sha256": "a06237beb85194cc2f91c75cb40502684b6a8a2a511174e5208b2e485d4f8a67",
   "dataset": "COCO 2017 validation instances",
   "annotation_url": "https://huggingface.co/datasets/pcuenq/coco2017-instances/resolve/main/instances_val2017.json",
   "model": "Ultralytics YOLO11n COCO pretrained",
@@ -41,6 +41,9 @@
   "baseline_ap50": 0.6685583346234448,
   "replayed_ap": 0.4732202054231096,
   "replayed_ap50": 0.6685583346234448,
+  "exported_ap": 0.4732202054231096,
+  "exported_ap50": 0.6685583346234448,
   "max_coco_metric_abs_error": 0.0,
+  "max_export_metric_abs_error": 0.0,
   "scope": "Existing full-image predictions, one full-image window; not real tiled inference or accuracy improvement"
 }

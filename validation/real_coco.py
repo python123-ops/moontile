@@ -67,9 +67,12 @@ def main():
             rejected += 1
             continue
         grouped[item["image_id"]].append(item)
-    baseline, actual = [], []
+    baseline, actual, exported = [], [], []
     with tempfile.TemporaryDirectory(prefix="moontile-coco-") as tmp:
         input_path = Path(tmp) / "input.json"
+        mapping_path = Path(tmp) / "mapping.json"
+        mapping_path.write_text(json.dumps([{"class_id": category["id"], "category_id": category["id"]}
+                                            for category in truth["categories"]]), encoding="utf8")
         for image_id in image_ids:
             image = images[image_id]
             records = grouped[image_id]
@@ -84,8 +87,13 @@ def main():
                        "width": image["width"], "height": image["height"]}, "detections": detections}]}
             input_path.write_text(json.dumps(request), encoding="utf8")
             result = json.loads(subprocess.check_output([str(args.binary.resolve()), str(input_path)], text=True))
+            coco_output = json.loads(subprocess.check_output([str(args.binary.resolve()), str(input_path),
+                                                               "--coco-map", str(mapping_path)], text=True))
             if len(result["kept"]) != len(records) or result["suppressed"]:
                 raise AssertionError(f"unexpected suppression on image {image_id}")
+            if len(coco_output) != len(records):
+                raise AssertionError(f"COCO export count mismatch on image {image_id}")
+            exported.extend(coco_output)
             baseline.extend(records)
             # Preserve input ordering, which matters for tied confidence scores.
             by_id = {item["id"]: item for item in result["kept"]}
@@ -98,9 +106,13 @@ def main():
         raise SystemExit("no valid predictions in selected images")
     before = evaluate(args.ground_truth, baseline, image_ids)
     after = evaluate(args.ground_truth, actual, image_ids)
+    coco_stats = evaluate(args.ground_truth, exported, image_ids)
     error = max(abs(a - b) for a, b in zip(before, after))
+    export_error = max(abs(a - b) for a, b in zip(before, coco_stats))
     if error > 1e-9:
         raise AssertionError(f"COCO metric drift {error}")
+    if export_error > 1e-9:
+        raise AssertionError(f"COCO export metric drift {export_error}")
     report = {"status": "passed", "command": f"python validation/real_coco.py --ground-truth <ground_truth.json> --predictions <predictions.json> --provenance <results.json> --binary <native-cli> --count {args.count} --output validation/real-coco-results.json",
               "python": sys.version.split()[0], "pycocotools": importlib.metadata.version("pycocotools"), "binary_sha256": digest(args.binary),
               "dataset": provenance["dataset"], "annotation_url": provenance["annotation_url"], "model": provenance["model"], "model_url": provenance["model_url"],
@@ -109,7 +121,8 @@ def main():
               "image_ids": image_ids, "images": len(image_ids), "input_predictions": len(baseline),
               "rejected_outside_or_invalid": rejected, "threshold": 1.0,
               "baseline_ap": before[0], "baseline_ap50": before[1], "replayed_ap": after[0], "replayed_ap50": after[1],
-              "max_coco_metric_abs_error": error,
+              "exported_ap": coco_stats[0], "exported_ap50": coco_stats[1],
+              "max_coco_metric_abs_error": error, "max_export_metric_abs_error": export_error,
               "scope": "Existing full-image predictions, one full-image window; not real tiled inference or accuracy improvement"}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf8")

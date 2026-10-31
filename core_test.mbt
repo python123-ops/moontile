@@ -106,3 +106,33 @@ test "restored box must remain representable after translation" {
   let tiny = detection(1, 0, 0, 0.5, 0.0, 0.0, 0.00000001, 0.5)
   assert_true(@moontile.restore(tile, tiny, 2000000001, 1) is Err(_))
 }
+
+///|
+test "COCO export preserves order and rejects ambiguous mappings" {
+  let a = detection(1, 0, 0, 0.9, 2.0, 3.0, 7.0, 9.0)
+  let b = detection(2, 0, 1, 0.8, 4.0, 5.0, 8.0, 10.0)
+  let mappings : Array[@moontile.CategoryMapping] = [
+    { class_id: 0, category_id: 7, },
+    { class_id: 1, category_id: 42, },
+  ]
+  let encoded = @moontile.export_coco([a, b], mappings).unwrap()
+  assert_eq(
+    encoded, "[{\"image_id\":1,\"category_id\":7,\"bbox\":[2,3,5,6],\"score\":0.9},{\"image_id\":1,\"category_id\":42,\"bbox\":[4,5,4,5],\"score\":0.8}]",
+  )
+  assert_true(@moontile.export_coco([a, b], [mappings[0]]) is Err(_))
+  assert_true(@moontile.export_coco([a], [mappings[0], mappings[0]]) is Err(_))
+  assert_true(@moontile.export_coco([a, a], mappings) is Err(_))
+  assert_true(
+    @moontile.export_coco([a], [{ class_id: 0, category_id: -1, }]) is Err(_),
+  )
+  assert_eq(@moontile.export_coco([], []).unwrap(), "[]")
+}
+
+///|
+test "COCO pipeline rejects malformed mappings" {
+  let input =
+    #|{"image_width":10,"image_height":10,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[]}
+  assert_true(@moontile.process_coco_json(input, "{") is Err(_))
+  assert_true(@moontile.process_coco_json(input, "{}") is Err(_))
+  assert_eq(@moontile.process_coco_json(input, "[]").unwrap(), "[]")
+}
