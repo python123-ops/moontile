@@ -64,6 +64,17 @@ pub(all) enum Overlap {
 type PipelineInput derive(@json.FromJson)
 pub fn PipelineInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 
+type StreamInput derive(@json.FromJson)
+pub fn StreamInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+
+pub struct StreamSession {
+  mut last_frame : Int?
+}
+pub fn StreamSession::last_frame(Self) -> Int?
+pub fn StreamSession::new() -> Self
+pub fn StreamSession::process_line(Self, String) -> Result[String, String]
+pub fn StreamSession::reset(Self) -> Unit
+
 pub(all) struct Suppression {
   suppressed_id : Int
   kept_id : Int

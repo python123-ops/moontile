@@ -12,6 +12,7 @@ moon run cmd/main --target native -- examples/input.json --mbmot-frame 1
 moon -C examples/consumer test --target all --deny-warn
 node web/build.mjs
 node web/test.mjs
+node web/stream_test.mjs
 ```
 
 `moon run` 读取 JSON 文件，成功时向标准输出写入一行 JSON；错误写入标准错误并返回退出码 2。示例为合成数据。运行 `node web/build.mjs` 后，从 `_build/site` 启动静态 HTTP 服务并打开 `index.html`。页面调用编译为 JavaScript 的同一 MoonBit 核心。
@@ -34,6 +35,16 @@ node web/test.mjs
 
 库调用可使用 `export_mbmot(detections, frame)` 导出已有原图坐标检测，或调用 `process_mbmot_json(source, frame)` 完成还原、NMS 和导出。NMS 仍按分数决定保留哪些框，MBMOT 导出再将保留框恢复为原始输入顺序，以保留跟踪器看到的检测次序。无效帧号、非法框、重复检测 ID 或同帧混入多个图像 ID 均报错，不输出部分结果。多帧状态和轨迹生命周期由 MBMOT 管理。
 
+连续帧可以用单个进程处理，无需每帧重启命令。标准输入为 NDJSON，每行是 `{"frame":1,"input":{...}}`；`input` 使用与 `examples/input.json` 相同的切片预测对象。可以先运行仓库内的三帧样例：
+
+```sh
+moon run cmd/main --target native -- --mbmot-stream < examples/stream.ndjson
+```
+
+每条成功输入即时输出一条可供 MBMOT replay 消费的 NDJSON，帧号必须是严格递增的正整数，允许跳帧；空检测帧有效。错误信息包含物理行号，CLI 以非零状态退出，先前完整输出仍保留；空行也按无效 JSON 处理。每个进程只处理一条流，跟踪仍由下游 MBMOT 完成；调用方须保证输入坐标尺度跨帧一致。CLI 按行读取，不限制单行大小，接入不受信任来源时应由调用方限制输入大小。
+
+MoonBit 调用方也可用 `StreamSession::new()` 和 `process_line` 逐行处理。无效输入不会改变该会话的最后成功帧号，调用方可以修正并重试；`last_frame()` 查询进度，`reset()` 开始新流。CLI 遇错退出，不自动重试。
+
 ## 项目关联与验证
 
 `examples/consumer` 是独立 MoonBit 模块，通过 workspace 引用源码，固定已发布的 MBMOT 0.3.0 和 MoonDetEval 0.1.0，展示框转换、显式类别映射、跟踪和 AP50 评估。测试还通过 MBMOT 自身解析器读取两帧切片合并结果，并检查跟踪身份延续。当前测试是合成样例，不代表模型精度。更高版本的 MoonDetEval 0.2.x 在本机 0.10.14 编译器上因 `Int32` 不可识别而未通过；不能将该 consumer 的结果推广到那些版本。
@@ -44,7 +55,7 @@ node web/test.mjs
 
 `validation/real_coco.py` 使用先前保存的 COCO val2017 标注和 YOLO11n 整图预测，先核对文件哈希，再将整张图作为单个切片重放。已运行 10 张图、2136 个预测，pycocotools 的 12 项 bbox 指标在重放和 COCO 导出后均与原结果一致；记录见 `validation/real-coco-results.json`。这验证真实整图数据的坐标和评估链路，不是逐切片推理或精度提升验证。真实逐切片预测数据仍未取得。
 
-`validation/real_video.py` 重放 MBMOT 现有演示的 OpenCV HOG 检测流，将每帧整图作为一个窗口，通过 MoonTile 转成 MBMOT 输入，再与直接输入原始检测流的跟踪结果逐帧比较。已验证 90 帧、291 个检测，跟踪输出全部一致；其中 80 帧的输入检测并非按分数降序排列。来源、二进制哈希和命令见 `validation/real-video-results.json`。本验证没有使用真实切片推理，也不衡量跟踪精度。
+`validation/real_video.py` 重放 MBMOT 现有演示的 OpenCV HOG 检测流，将每帧整图作为一个窗口，经单个 MoonTile 流处理进程转成 MBMOT 输入，再与直接输入原始检测流的跟踪结果逐帧比较。已验证 90 帧、291 个检测，跟踪输出全部一致；其中 80 帧的输入检测并非按分数降序排列。来源、二进制哈希和命令见 `validation/real-video-results.json`。本验证没有使用真实切片推理，也不衡量跟踪精度。
 
 ## 边界与参考
 

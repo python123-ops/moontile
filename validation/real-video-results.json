@@ -4,7 +4,7 @@
   "dataset": "MBMOT 90-frame HOG detection stream from OpenCV vtest.avi",
   "source": "https://github.com/python123-ops/mbmot/tree/main/examples/video",
   "detection_sha256": "a1c9bf2e9429bc64ebed5dc179c241c25b17263cfe737b54eea8518ca33902b9",
-  "moontile_binary_sha256": "1e4c5390d849cd35ce4bdab61a489a1a1e6f4dd5cf37a65ecd3d7c52a947be04",
+  "moontile_binary_sha256": "0fa98dec96bf112b00fa7d78be825e5db825190cc76a4d542cbceb305563fe07",
   "mbmot_binary_sha256": "4e264cc9f9c11965bf073cf5a81fbf56c67cd94083268032776622b5a93551f8",
   "mbmot_source_revision": "1021f4e7c24a8c865e114d97111ffd969f6b515f",
   "dimensions": [
@@ -14,6 +14,8 @@
   "frames": 90,
   "detections": 291,
   "frames_not_score_sorted": 80,
+  "moontile_invocations": 1,
+  "protocol": "--mbmot-stream",
   "threshold": 1.0,
   "matched_tracking_frames": 90,
   "scope": "Existing whole-frame predictions; one tile per frame. Not an accuracy or real tiled-inference benchmark."

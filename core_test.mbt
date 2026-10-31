@@ -174,3 +174,27 @@ test "MBMOT pipeline retains original order after score-ranked suppression" {
     output, "{\"frame\":1,\"detections\":[{\"xyxy\":[0,0,2,2],\"score\":0.5,\"class_id\":0},{\"xyxy\":[5,5,7,7],\"score\":0.9,\"class_id\":0}]}",
   )
 }
+
+///|
+test "stream rejects errors without advancing and allows reset" {
+  let data =
+    #|{"image_width":10,"image_height":10,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[]}
+  let session = @moontile.StreamSession::new()
+  assert_true(session.last_frame() is None)
+  assert_true(session.process_line("not json") is Err(_))
+  let first = "{\"frame\":1,\"input\":" + data + "}"
+  let first_output = session.process_line(first).unwrap()
+  assert_eq(first_output, "{\"frame\":1,\"detections\":[]}")
+  assert_true(session.last_frame() is Some(1))
+  assert_true(session.process_line(first) is Err(_))
+  assert_true(session.process_line("{\"frame\":2,\"input\":{}}") is Err(_))
+  assert_true(session.last_frame() is Some(1))
+  let third = "{\"frame\":3,\"input\":" + data + "}"
+  assert_eq(
+    session.process_line(third).unwrap(),
+    "{\"frame\":3,\"detections\":[]}",
+  )
+  session.reset()
+  assert_true(session.last_frame() is None)
+  assert_true(session.process_line(first) is Ok(_))
+}

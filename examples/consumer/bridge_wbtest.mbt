@@ -59,3 +59,25 @@ test "MBMOT replay consumes two frames of tile results" {
   assert_eq(track1.track_id(), track2.track_id())
   assert_eq(track2.hits(), 2)
 }
+
+///|
+test "stream output is accepted by MBMOT replay session" {
+  let input =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":100,"height":60},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.95,"box":{"x1":45,"y1":10,"x2":58,"y2":30}}]}]}
+  let tile_stream = @moontile.StreamSession::new()
+  let replay = @replay_codec.ReplaySession::new(@mbmot.TrackerConfig::default())
+  let first = tile_stream
+    .process_line("{\"frame\":1,\"input\":" + input + "}")
+    .unwrap()
+  let second = tile_stream
+    .process_line("{\"frame\":2,\"input\":" + input + "}")
+    .unwrap()
+  let parsed = @replay_codec.parse_frame_line(first)
+  assert_eq(parsed.frame(), 1)
+  assert_eq(parsed.detections().length(), 1)
+  let out1 = replay.process_line(first)
+  let out2 = replay.process_line(second)
+  assert_true(out1.contains("\"track_id\":1"))
+  assert_true(out2.contains("\"track_id\":1"))
+  assert_true(out2.contains("\"hits\":2"))
+}
