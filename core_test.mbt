@@ -210,6 +210,82 @@ test "restore and reject invalid inputs" {
 }
 
 ///|
+test "typed pipeline restores, merges and validates the complete batch" {
+  let first : @moontile.TilePredictions = {
+    tile: { id: 0, x: 0, y: 0, width: 60, height: 60, },
+    detections: [detection(1, 0, 0, 0.95, 100.0, 20.0, 130.0, 50.0)],
+    transform: Some({
+      scale_x: 2.0,
+      scale_y: 1.5,
+      pad_x: 10.0,
+      pad_y: 5.0,
+      clip: false,
+    }),
+  }
+  let second : @moontile.TilePredictions = {
+    tile: { id: 1, x: 40, y: 0, width: 60, height: 60, },
+    detections: [detection(2, 1, 0, 0.85, 10.0, 10.0, 30.0, 30.0)],
+    transform: None,
+  }
+  let config : @moontile.MergeConfig = {
+    threshold: 0.5,
+    metric: IoS,
+    class_agnostic: false,
+    strategy: GreedyNmm,
+  }
+  let result = @moontile.process_tiles(100, 60, [first, second], config).unwrap()
+  assert_eq(result.restored.length(), 2)
+  assert_eq(result.restored[0].box.x1, 45.0)
+  assert_eq(result.restored[1].box.x2, 70.0)
+  assert_eq(result.merged.kept.length(), 1)
+  assert_eq(result.merged.kept[0].box.x2, 70.0)
+  assert_eq(result.merged.suppressed[0].suppressed_id, 2)
+  let json =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"ios","class_agnostic":false,"strategy":"greedy_nmm","tiles":[{"tile":{"id":0,"x":0,"y":0,"width":60,"height":60},"transform":{"scale_x":2,"scale_y":1.5,"pad_x":10,"pad_y":5,"clip":false},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.95,"box":{"x1":100,"y1":20,"x2":130,"y2":50}}]},{"tile":{"id":1,"x":40,"y":0,"width":60,"height":60},"detections":[{"id":2,"image_id":1,"tile_id":1,"class_id":0,"score":0.85,"box":{"x1":10,"y1":10,"x2":30,"y2":30}}]}]}
+  let mapped = @moontile.export_coco(result.merged.kept, [
+    { class_id: 0, category_id: 7, },
+  ]).unwrap()
+  assert_eq(
+    mapped,
+    @moontile.process_coco_json(json, "[{\"class_id\":0,\"category_id\":7}]").unwrap(),
+  )
+  let nms = @moontile.process_tiles(100, 60, [first, second], {
+    ..config,
+    strategy: Nms,
+  }).unwrap()
+  assert_eq(nms.merged.kept[0].box.x2, 60.0)
+  assert_true(
+    @moontile.process_tiles(100, 60, [first, first], config) is Err(_),
+  )
+  assert_true(@moontile.process_tiles(0, 60, [], config) is Err(_))
+  assert_true(
+    @moontile.process_tiles(100, 60, [], { ..config, threshold: 1.5, })
+    is Err(_),
+  )
+  let invalid = {
+    ..second,
+    detections: [detection(1, 1, 0, 0.8, 1.0, 1.0, 4.0, 4.0)],
+  }
+  assert_true(
+    @moontile.process_tiles(100, 60, [first, invalid], config) is Err(_),
+  )
+  let empty_invalid = {
+    ..first,
+    detections: [],
+    transform: Some({
+      scale_x: 0.0,
+      scale_y: 1.0,
+      pad_x: 0.0,
+      pad_y: 0.0,
+      clip: false,
+    }),
+  }
+  assert_true(
+    @moontile.process_tiles(100, 60, [empty_invalid], config) is Err(_),
+  )
+}
+
+///|
 test "NMS class, ties, threshold and provenance" {
   let a = detection(7, 0, 0, 0.9, 0.0, 0.0, 10.0, 10.0)
   let b = detection(8, 1, 0, 0.9, 0.0, 0.0, 10.0, 10.0)

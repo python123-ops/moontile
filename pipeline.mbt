@@ -23,13 +23,38 @@ struct PipelineInput {
 pub extend PipelineInput with @json.FromJson::{from_json}
 
 ///|
-priv struct Processed {
+/// One tile and its detections, with an optional model-input transform.
+pub(all) struct TilePredictions {
+  tile : Tile
+  detections : Array[Detection]
+  transform : ModelTransform?
+}
+
+///|
+/// Choose suppression or non-transitive greedy envelope merging.
+pub(all) enum MergeStrategy {
+  Nms
+  GreedyNmm
+}
+
+///|
+/// Parameters applied after all tile coordinates have been restored.
+pub(all) struct MergeConfig {
+  threshold : Double
+  metric : Overlap
+  class_agnostic : Bool
+  strategy : MergeStrategy
+}
+
+///|
+/// The input-ordered restored detections and the ranked merge result.
+pub(all) struct PipelineResult {
   restored : Array[Detection]
   merged : MergeResult
 }
 
 ///|
-fn process_data(source : String) -> Result[Processed, String] {
+fn process_data(source : String) -> Result[PipelineResult, String] {
   let json = @json.parse(source) catch { _ => return Err("invalid JSON") }
   let input : PipelineInput = @json.from_json(json) catch {
     _ => return Err("invalid pipeline fields")
@@ -42,9 +67,39 @@ fn process_data(source : String) -> Result[Processed, String] {
     "ios" => IoS
     _ => return Err("metric must be iou or ios")
   }
+  let strategy = match input.strategy {
+    None | Some("nms") => Nms
+    Some("greedy_nmm") => GreedyNmm
+    Some(_) => return Err("strategy must be nms or greedy_nmm")
+  }
+  let tiles : Array[TilePredictions] = input.tiles.map(fn(group) {
+    {
+      tile: group.tile,
+      detections: group.detections,
+      transform: group.transform,
+    }
+  })
+  process_tiles(input.image_width, input.image_height, tiles, {
+    threshold: input.threshold,
+    metric,
+    class_agnostic: input.class_agnostic,
+    strategy,
+  })
+}
+
+///|
+/// Restore and merge all tile detections atomically; invalid or duplicate tile
+/// or detection IDs, invalid transforms, and invalid dimensions return Err.
+/// All slices in one call share image dimensions; NMS isolates image IDs.
+pub fn process_tiles(
+  image_width : Int,
+  image_height : Int,
+  tiles : Array[TilePredictions],
+  config : MergeConfig,
+) -> Result[PipelineResult, String] {
   let restored : Array[Detection] = []
   let tile_ids : Set[Int] = Set([])
-  for group in input.tiles {
+  for group in tiles {
     if !tile_ids.add_and_check(group.tile.id) {
       return Err("duplicate tile id")
     }
@@ -56,30 +111,24 @@ fn process_data(source : String) -> Result[Processed, String] {
         }
       None => ()
     }
-    if input.image_width <= 0 ||
-      input.image_height <= 0 ||
+    if image_width <= 0 ||
+      image_height <= 0 ||
       t.id < 0 ||
       t.x < 0 ||
       t.y < 0 ||
       t.width <= 0 ||
       t.height <= 0 ||
-      t.width > input.image_width ||
-      t.height > input.image_height ||
-      t.x > input.image_width - t.width ||
-      t.y > input.image_height - t.height {
+      t.width > image_width ||
+      t.height > image_height ||
+      t.x > image_width - t.width ||
+      t.y > image_height - t.height {
       return Err("invalid tile or image dimensions")
     }
     for record in group.detections {
       let result = match group.transform {
         Some(transform) =>
-          restore_model(
-            t,
-            record,
-            input.image_width,
-            input.image_height,
-            transform,
-          )
-        None => restore(t, record, input.image_width, input.image_height)
+          restore_model(t, record, image_width, image_height, transform)
+        None => restore(t, record, image_width, image_height)
       }
       match result {
         Ok(value) => restored.push(value)
@@ -87,25 +136,24 @@ fn process_data(source : String) -> Result[Processed, String] {
       }
     }
   }
-  if input.image_width <= 0 || input.image_height <= 0 {
+  if image_width <= 0 || image_height <= 0 {
     return Err("invalid image dimensions")
   }
-  let merged = match input.strategy {
-    None | Some("nms") =>
+  let merged = match config.strategy {
+    Nms =>
       suppress(
         restored,
-        input.threshold,
-        metric,
-        class_agnostic=input.class_agnostic,
+        config.threshold,
+        config.metric,
+        class_agnostic=config.class_agnostic,
       )
-    Some("greedy_nmm") =>
+    GreedyNmm =>
       merge_envelopes(
         restored,
-        input.threshold,
-        metric,
-        class_agnostic=input.class_agnostic,
+        config.threshold,
+        config.metric,
+        class_agnostic=config.class_agnostic,
       )
-    Some(_) => return Err("strategy must be nms or greedy_nmm")
   }
   let result = match merged {
     Ok(value) => value
