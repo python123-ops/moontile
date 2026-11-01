@@ -116,6 +116,16 @@ python validation/sahi_layout.py --sahi-dir _build/sahi-reference --binary <nati
 
 `validation/real_coco.py` 使用先前保存的 COCO val2017 标注和 YOLO11n 整图预测，先核对文件哈希，再将整张图作为单个切片重放。已运行 10 张图、2136 个预测，pycocotools 的 12 项 bbox 指标在重放和 COCO 导出后均与原结果一致；记录见 `validation/real-coco-results.json`。这验证真实整图数据的坐标和评估链路，不是逐切片推理或精度提升验证。真实逐切片预测数据仍未取得。
 
+同一组预测也用于检验 JSON 框格式：以 `xywh` 直接输入，或把已有预测通过数学计算转换为归一化 `xyxy`、归一化中心点格式后输入。三个格式的 12 项指标均与原始预测一致；最大框坐标误差分别为 0、约 `5.68e-14`、约 `8.53e-14` 像素。各自的哈希、参数及结果保存在 `validation/real-coco-xywh-results.json`、`validation/real-coco-normalized_xyxy-results.json` 和 `validation/real-coco-normalized_cxcywh-results.json`。归一化框是由已有整图预测转换得到，并非额外运行检测器产生的预测。
+
+复现时使用之前保存的标注、预测和来源记录，并安装 `pycocotools`；下面以归一化中心点格式为例：
+
+```sh
+python validation/real_coco.py --ground-truth <ground_truth.json> --predictions <predictions.json> --provenance <results.json> --binary <native-cli> --count 10 --input-format normalized_cxcywh --output <output.json>
+```
+
+`--input-format` 还支持 `xyxy`、`xywh` 和 `normalized_xyxy`。脚本验证输入哈希、输出标识、顺序、坐标误差以及 COCO 指标；筛选规则、原推理参数和随机种子记录在结果文件中。
+
 `validation/real_video.py` 重放 MBMOT 现有演示的 OpenCV HOG 检测流，将每帧整图作为一个窗口，经单个 MoonTile 流处理进程转成 MBMOT 输入，再与直接输入原始检测流的跟踪结果逐帧比较。已验证 90 帧、291 个检测，跟踪输出全部一致；其中 80 帧的输入检测并非按分数降序排列。来源、二进制哈希和命令见 `validation/real-video-results.json`。本验证没有使用真实切片推理，也不衡量跟踪精度。
 
 ## 边界与参考
