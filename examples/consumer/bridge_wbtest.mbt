@@ -1,6 +1,6 @@
 ///|
 test "merged detection feeds tracking and evaluation" {
-  let grid = @moontile.TileGrid::new(100, 60, 100, 60, 0, 0).unwrap()
+  let grid = @moontile.TileGrid::new(100, 60, 60, 60, 20, 0).unwrap()
   let tile = grid.get(0).unwrap()
   let d : @moontile.Detection = {
     id: 1,
@@ -19,10 +19,10 @@ test "merged detection feeds tracking and evaluation" {
   accumulator
   .add_tiles([
     { tile, detections: [d], transform: None, },
-    { tile: { ..tile, id: 1, }, detections: [], transform: None, },
+    { tile: grid.get(1).unwrap(), detections: [], transform: None, },
   ])
   .unwrap()
-  let result = accumulator.finish().unwrap()
+  let result = accumulator.finish_grid(grid).unwrap()
   let track_input = to_tracker(result.merged.kept[0])
   let tracker = @mbmot.Tracker::new(@mbmot.TrackerConfig::default())
   let tracks = tracker.update(1, [track_input])

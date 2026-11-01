@@ -13,6 +13,7 @@ moon run cmd/main --target native -- examples/partial-input.json
 moon run cmd/main --target native -- examples/model-input.json
 moon run cmd/main --target native -- examples/formats-input.json
 moon run cmd/main --target native -- examples/clipped-input.json
+moon run cmd/main --target native -- examples/complete-input.json
 moon run cmd/main --target native -- examples/input.json --coco-map examples/coco-map.json
 moon run cmd/main --target native -- examples/input.json --mbmot-frame 1
 moon -C examples/consumer test --target all --deny-warn
@@ -71,8 +72,11 @@ JSON 每个切片可选择性增加 `transform`，各切片可以使用不同参
 
 MoonBit 调用方可以使用类型化的 `process_tiles(image_width, image_height, tiles, config)` 一次完成还原和合并，无需组装 JSON。`TilePredictions` 包含 `tile`、`detections` 和可选 `transform`；`MergeConfig` 指定阈值、重叠度量、是否跨类别处理以及 `Nms` 或 `GreedyNmm` 策略。结果的 `restored` 保持输入顺序，`merged` 包含排序后的保留框和溯源记录。所有切片在一次调用中共用图像尺寸；不同图像 ID 的框互不合并，检测 ID 在整个调用中必须唯一。任一切片或检测无效时返回错误，不返回部分结果。完整类型化接入示例见 [examples/consumer/bridge_wbtest.mbt](examples/consumer/bridge_wbtest.mbt)。
 
-逐切片接收结果时，可用 `TileAccumulator::new(image_width, image_height, config)` 创建累积器，并通过 `add_tile` 依次加入 `TilePredictions`。每次添加会先校验整个切片、转换坐标并检查标识是否重复；失败时先前数据保持不变，可以修正后重试。`tile_count` 和 `detection_count` 查询已接受的数量，`finish` 执行全局合并并返回独立快照，`reset` 清空数据但保留尺寸和配置。`finish` 不清空累积器，之后仍可添加；同分框按切片加入和框在切片内的顺序处理。合并前仍须保存全部已接收检测，内存随检测数量增长；它不会提前确定最终保留框。 检测器按批次返回结果时，可调用 `add_tiles` 一次加入多个切片：批次内以及与此前数据之间的重复切片或检测 ID、无效框和变换都会使整批失败，先前数据不受影响；空批次有效。批次内的输入顺序保持不变，同分框按加入顺序处理。校验期间会暂存本批还原后的框，所需额外内存随本批检测数量增长。
+逐切片接收结果时，可用 `TileAccumulator::new(image_width, image_height, config)` 创建累积器，并通过 `add_tile` 依次加入 `TilePredictions`。每次添加会先校验整个切片、转换坐标并检查标识是否重复；失败时先前数据保持不变，可以修正后重试。`tile_count` 和 `detection_count` 查询已接受的数量，`finish` 执行全局合并并返回独立快照，`reset` 清空数据但保留尺寸和配置。`finish` 不清空累积器，之后仍可添加；同分框按切片加入和框在切片内的顺序处理。累积器会保存已接收窗口和全部检测，内存随窗口及检测数量增长；它不会提前确定最终保留框。 检测器按批次返回结果时，可调用 `add_tiles` 一次加入多个切片：批次内以及与此前数据之间的重复切片或检测 ID、无效框和变换都会使整批失败，先前数据不受影响；空批次有效。批次内的输入顺序保持不变，同分框按加入顺序处理。校验期间会暂存本批还原后的框，所需额外内存随本批检测数量增长。
 
+需要确认整个规划都已接收时，可调用 `TileAccumulator::finish_grid(grid)`。它要求网格与累积器图像尺寸相同，逐一核对每个规划切片的编号、位置和尺寸，并要求非空检测属于同一 `image_id`。没有检测的切片也必须加入空预测组；失败不会改变累积器，可以补齐后重试。窗口可乱序加入，同分框仍按加入顺序处理。该检查确认调用方提交了对应窗口，不能验证调用方实际运行了检测器；空预测组不携带可校验的图像 ID。普通 `finish()` 仍允许只处理部分窗口。
+
+JSON 可选 `tile_plan` 对象指定 `tile_width`、`tile_height`、`overlap_x` 和 `overlap_y`，启用同一完整性检查，见 [examples/complete-input.json](examples/complete-input.json)。字段必须是 32 位整数，窗口规划使用输入图像尺寸，编号与 `plan_tiles` 一致。漏片、额外或重复编号、错误窗口尺寸和位置、混合图像 ID 都报错；不提供 `tile_plan` 时保留原有行为。CLI、浏览器、COCO 和 MBMOT 导出及视频流使用同一规则。
 JSON 处理入口要求图像和切片尺寸、切片位置、检测标识和类别标识为 32 位整数；类别映射 ID 和流帧号也必须为整数。数值上为整数的 `1.0`、`1e0` 等写法可用，解析后的非整数值会报错；数值先按双精度解析，极接近整数或极小的数可能发生舍入。检测框坐标、分数和阈值仍可使用小数。以上检查适用于 MoonTile 的 JSON 入口；如果调用方直接使用 MoonBit 的通用 `FromJson` 解码公开类型，需要自行验证输入。
 
 需要把合并结果交给 MoonDetEval 或其他 COCO bbox 评估器时，CLI 增加 `--coco-map`，输出 COCO 检测结果数组而不是诊断对象。映射文件是 `[{"class_id":0,"category_id":7}]` 形式的 JSON 数组；完整示例见 [examples/coco-map.json](examples/coco-map.json)。每个保留框的类别都必须有映射，重复的 `class_id`、负数 ID、格式错误和缺失映射会使命令报错，标准输出保持为空。多个 class 可以映射到同一个 category；类别映射发生在 NMS 之后，不影响原有的按检测类别去重。输出的 `bbox` 使用连续 `xywh`，顺序与保留结果一致，不裁剪，也不包含 MoonTile 内部检测 ID。
@@ -171,6 +175,7 @@ python validation/scale/quality.py --infer --images <image-cache> --weights <yol
 
 CI 使用 Python 标准库回放全部 200 张图的原始切片预测，检查坐标和 NMS 结果数量；八组指标和外部参考评估需要上述完整 Python 环境。
 
+使用同一批 200 张真实图片预测验证 `tile_plan`：200 个完整切片组的输出与原流程一致，分别人为删除一片或修改一片尺寸后，200 个漏片输入和 200 个错误窗口输入均被拒绝，标准输出为空。完整记录见 [grid-completeness-results.json](validation/scale/grid-completeness-results.json)；错误输入是为验证边界人为构造的。
 另取上述真实预测中贴住切片边缘的 665 个框，将贴边坐标人为向切片外延伸 1 像素，覆盖 160 张图的 459 个切片；启用 `clip_local` 后，全部还原框、合并框和抑制记录与原始预测一致。这是基于真实预测构造的边界扰动，不是检测器直接输出的越界框。[扰动验证结果](validation/scale/clipping-boundary-results.json)记录各边界数量与输入哈希；CI 同样运行该回放。
 `validation/real_tiled_video.py` 补充真实切片视频链路：读取 OpenCV 的 [vtest.avi](https://github.com/opencv/opencv/blob/4.x/samples/data/vtest.avi) 前 20 帧（768×576、10 FPS），每帧切成 6 个 384×384 窗口，重叠 128 像素，在每个窗口运行 OpenCV HOG 行人检测。MoonTile 对 143 个局部预测执行坐标还原和 IoU 0.4 的 NMS，保留 54 个，再逐帧送入 MBMOT；跟踪输出包含 20 帧，5 个轨迹 ID 在多帧出现。HOG 的分数是 SVM margin 的 sigmoid 变换，并非经过校准的概率；视频没有跟踪标注，轨迹数量和 ID 延续不能说明跟踪准确率，被抑制数量也不等同于人工确认的重复框数量。
 

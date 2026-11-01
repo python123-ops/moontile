@@ -31,6 +31,23 @@ fn pipeline_integers_match(json : Json, input : PipelineInput) -> Bool {
     ]) {
     return false
   }
+  match input.tile_plan {
+    Some(plan) => {
+      let plan_json = match json_field(json, "tile_plan") {
+        Some(value) => value
+        None => return false
+      }
+      if !integer_fields_match(plan_json, [
+          ("tile_width", plan.tile_width),
+          ("tile_height", plan.tile_height),
+          ("overlap_x", plan.overlap_x),
+          ("overlap_y", plan.overlap_y),
+        ]) {
+        return false
+      }
+    }
+    None => ()
+  }
   let groups = match json_field(json, "tiles") {
     Some(Array(values)) => values
     _ => return false

@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "images": 200,
+  "tiles": 1406,
+  "complete_inputs_verified": 200,
+  "dropped_tile_inputs_rejected": 200,
+  "wrong_geometry_inputs_rejected": 200,
+  "detections": 11657,
+  "fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "binary_sha256": "96d6dede8ba3db43f0b33c61c73bc3ee403911f79886415591ad2e56d3e4ee9e",
+  "command": "python validation/replay_tiled_coco.py --binary <moontile-cli> --raw validation/scale/predictions.json --report validation/scale/results.json --require-plan --plan-output <results.json>",
+  "scope": "Real crop detections; missing and altered tiles are synthetic error injections."
+}

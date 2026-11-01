@@ -16,6 +16,8 @@ def main():
     p.add_argument('--raw', type=Path, default=HERE / 'real-tiled-coco-predictions.json')
     p.add_argument('--report', type=Path, default=HERE / 'real-tiled-coco-results.json')
     p.add_argument('--clip-boundary', action='store_true')
+    p.add_argument('--require-plan', action='store_true')
+    p.add_argument('--plan-output', type=Path)
     p.add_argument('--boundary-output', type=Path)
     args = p.parse_args()
     raw_path = args.raw
@@ -26,6 +28,7 @@ def main():
     counts = [0, 0, 0]
     boundary_edges = {'left': 0, 'top': 0, 'right': 0, 'bottom': 0}
     boundary_images = boundary_groups = boundary_boxes = 0
+    checked_plans = dropped_plans = wrong_geometry = 0
     with tempfile.TemporaryDirectory(prefix='moontile-tiled-replay-') as tmp:
         path = Path(tmp) / 'input.json'
         for request in raw['requests']:
@@ -40,6 +43,32 @@ def main():
                                                           'x2': b['x2'] + tile['x'], 'y2': b['y2'] + tile['y']}})
             if result['restored'] != expected:
                 raise AssertionError('coordinate or provenance mismatch')
+            if args.require_plan:
+                inference = report['inference']
+                planned = copy.deepcopy(request)
+                planned['tile_plan'] = {key: inference[key] for key in ('tile_width', 'tile_height', 'overlap_x', 'overlap_y')}
+                path.write_text(json.dumps(planned, separators=(',', ':')), encoding='utf8')
+                complete = json.loads(subprocess.check_output([str(args.binary.resolve()), str(path)], encoding='utf8'))
+                if complete != result:
+                    raise AssertionError('planned complete input changed results')
+                checked_plans += 1
+                missing = copy.deepcopy(planned)
+                missing['tiles'].pop()
+                path.write_text(json.dumps(missing, separators=(',', ':')), encoding='utf8')
+                bad = subprocess.run([str(args.binary.resolve()), str(path)], capture_output=True, encoding='utf8')
+                if bad.returncode == 0 or bad.stdout or 'tile count does not match grid' not in bad.stderr:
+                    raise AssertionError('missing tile was not rejected atomically')
+                dropped_plans += 1
+                wrong = copy.deepcopy(planned)
+                group = wrong['tiles'][0]
+                if group['tile']['width'] > 1:
+                    group['tile']['width'] -= 1
+                    group['detections'] = []
+                    path.write_text(json.dumps(wrong, separators=(',', ':')), encoding='utf8')
+                    bad = subprocess.run([str(args.binary.resolve()), str(path)], capture_output=True, encoding='utf8')
+                    if bad.returncode == 0 or bad.stdout or 'tile geometry differs from grid' not in bad.stderr:
+                        raise AssertionError('wrong tile geometry was not rejected atomically')
+                    wrong_geometry += 1
             if args.clip_boundary:
                 mutated = copy.deepcopy(request)
                 image_has_changes = False
@@ -61,6 +90,8 @@ def main():
                         group['clip_local'] = True
                         boundary_groups += 1
                 if image_has_changes:
+                    if args.require_plan:
+                        mutated['tile_plan'] = planned['tile_plan']
                     boundary_images += 1
                     path.write_text(json.dumps(mutated, separators=(',', ':')), encoding='utf8')
                     clipped = json.loads(subprocess.check_output([str(args.binary.resolve()), str(path)], encoding='utf8'))
@@ -73,6 +104,19 @@ def main():
                 raise AssertionError('merge accounting mismatch')
     if counts != [report['predictions_before'], report['predictions_after'], report['suppressed']]:
         raise AssertionError('merge counts differ from saved inference')
+    if args.require_plan:
+        plan_report = {'status': 'passed', 'images': len(raw['requests']), 'tiles': sum(len(r['tiles']) for r in raw['requests']),
+                       'complete_inputs_verified': checked_plans, 'dropped_tile_inputs_rejected': dropped_plans,
+                       'wrong_geometry_inputs_rejected': wrong_geometry, 'detections': counts[0],
+                       'fixture_sha256': hashlib.sha256(raw_path.read_bytes()).hexdigest(),
+                       'binary_sha256': hashlib.sha256(args.binary.read_bytes()).hexdigest(),
+                       'command': 'python validation/replay_tiled_coco.py --binary <moontile-cli> --raw validation/scale/predictions.json --report validation/scale/results.json --require-plan --plan-output <results.json>',
+                       'scope': 'Real crop detections; missing and altered tiles are synthetic error injections.'}
+        if args.plan_output:
+            args.plan_output.write_bytes((json.dumps(plan_report, indent=2) + '\n').encode('utf8'))
+        print('Checked {} complete plans, {} missing tiles and {} wrong geometries.'.format(checked_plans, dropped_plans, wrong_geometry))
+    elif args.plan_output:
+        raise ValueError('--plan-output requires --require-plan')
     if args.clip_boundary:
         if not boundary_boxes:
             raise AssertionError('no edge-touching predictions in fixture')

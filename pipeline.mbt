@@ -13,6 +13,17 @@ struct TileInput {
 pub extend TileInput with @json.FromJson::{from_json}
 
 ///|
+struct TilePlanInput {
+  tile_width : Int
+  tile_height : Int
+  overlap_x : Int
+  overlap_y : Int
+} derive(FromJson)
+
+///|
+pub extend TilePlanInput with @json.FromJson::{from_json}
+
+///|
 struct PipelineInput {
   image_width : Int
   image_height : Int
@@ -20,6 +31,7 @@ struct PipelineInput {
   metric : String
   class_agnostic : Bool
   strategy : String?
+  tile_plan : TilePlanInput?
   tiles : Array[TileInput]
 } derive(FromJson)
 
@@ -83,12 +95,36 @@ fn process_data(source : String) -> Result[PipelineResult, String] {
       Err(message) => return Err(message)
     }
   }
-  process_tiles(input.image_width, input.image_height, tiles, {
-    threshold: input.threshold,
-    metric,
-    class_agnostic: input.class_agnostic,
-    strategy,
-  })
+  let grid = match input.tile_plan {
+    None => None
+    Some(plan) => {
+      let grid = match
+        TileGrid::new(
+          input.image_width,
+          input.image_height,
+          plan.tile_width,
+          plan.tile_height,
+          plan.overlap_x,
+          plan.overlap_y,
+        ) {
+        Ok(value) => value
+        Err(message) => return Err(message)
+      }
+      Some(grid)
+    }
+  }
+  process_with_grid(
+    input.image_width,
+    input.image_height,
+    tiles,
+    {
+      threshold: input.threshold,
+      metric,
+      class_agnostic: input.class_agnostic,
+      strategy,
+    },
+    grid,
+  )
 }
 
 ///|
@@ -101,6 +137,17 @@ pub fn process_tiles(
   tiles : Array[TilePredictions],
   config : MergeConfig,
 ) -> Result[PipelineResult, String] {
+  process_with_grid(image_width, image_height, tiles, config, None)
+}
+
+///|
+fn process_with_grid(
+  image_width : Int,
+  image_height : Int,
+  tiles : Array[TilePredictions],
+  config : MergeConfig,
+  grid : TileGrid?,
+) -> Result[PipelineResult, String] {
   let accumulator = match
     TileAccumulator::new(image_width, image_height, config) {
     Ok(value) => value
@@ -112,7 +159,10 @@ pub fn process_tiles(
       Err(message) => return Err(message)
     }
   }
-  accumulator.finish()
+  match grid {
+    Some(value) => accumulator.finish_grid(value)
+    None => accumulator.finish()
+  }
 }
 
 ///|

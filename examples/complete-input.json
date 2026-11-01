@@ -1,0 +1,76 @@
+{
+  "image_width": 100,
+  "image_height": 60,
+  "threshold": 0.5,
+  "metric": "iou",
+  "class_agnostic": false,
+  "tiles": [
+    {
+      "tile": {
+        "id": 0,
+        "x": 0,
+        "y": 0,
+        "width": 60,
+        "height": 60
+      },
+      "detections": [
+        {
+          "id": 1,
+          "image_id": 1,
+          "tile_id": 0,
+          "class_id": 0,
+          "score": 0.95,
+          "box": {
+            "x1": 45,
+            "y1": 10,
+            "x2": 58,
+            "y2": 30
+          }
+        }
+      ]
+    },
+    {
+      "tile": {
+        "id": 1,
+        "x": 40,
+        "y": 0,
+        "width": 60,
+        "height": 60
+      },
+      "detections": [
+        {
+          "id": 2,
+          "image_id": 1,
+          "tile_id": 1,
+          "class_id": 0,
+          "score": 0.85,
+          "box": {
+            "x1": 5,
+            "y1": 10,
+            "x2": 18,
+            "y2": 30
+          }
+        },
+        {
+          "id": 3,
+          "image_id": 1,
+          "tile_id": 1,
+          "class_id": 1,
+          "score": 0.8,
+          "box": {
+            "x1": 30,
+            "y1": 20,
+            "x2": 40,
+            "y2": 40
+          }
+        }
+      ]
+    }
+  ],
+  "tile_plan": {
+    "tile_width": 60,
+    "tile_height": 60,
+    "overlap_x": 20,
+    "overlap_y": 0
+  }
+}

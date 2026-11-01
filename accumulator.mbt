@@ -5,7 +5,7 @@ pub struct TileAccumulator {
   image_width : Int
   image_height : Int
   config : MergeConfig
-  tile_ids : Set[Int]
+  tile_windows : Map[Int, Tile]
   detection_ids : Set[Int]
   restored : Array[Detection]
 }
@@ -29,7 +29,7 @@ pub fn TileAccumulator::new(
     image_width,
     image_height,
     config,
-    tile_ids: Set([]),
+    tile_windows: Map([]),
     detection_ids: Set([]),
     restored: [],
   })
@@ -38,7 +38,7 @@ pub fn TileAccumulator::new(
 ///|
 /// Number of successfully added tiles, including empty tiles.
 pub fn TileAccumulator::tile_count(self : TileAccumulator) -> Int {
-  self.tile_ids.length()
+  self.tile_windows.length()
 }
 
 ///|
@@ -75,7 +75,7 @@ pub fn TileAccumulator::add_tiles(
     }
   }
   for group in groups {
-    self.tile_ids.add(group.tile.id)
+    self.tile_windows[group.tile.id] = group.tile
   }
   for record in pending {
     self.detection_ids.add(record.id)
@@ -94,7 +94,8 @@ fn TileAccumulator::stage_tile(
   pending_tiles : Set[Int],
 ) -> Result[Unit, String] {
   let tile = group.tile
-  if self.tile_ids.contains(tile.id) || !pending_tiles.add_and_check(tile.id) {
+  if self.tile_windows.contains(tile.id) ||
+    !pending_tiles.add_and_check(tile.id) {
     return Err("duplicate tile id")
   }
   match group.transform {
@@ -150,9 +151,46 @@ pub fn TileAccumulator::finish(
 }
 
 ///|
+/// Merge only after every window in the supplied grid was added exactly once
+/// with its planned geometry. All detections must share one image ID.
+/// Empty prediction tiles count as received; their image cannot be verified.
+/// A failure leaves the accumulator unchanged so missing tiles can be added.
+pub fn TileAccumulator::finish_grid(
+  self : TileAccumulator,
+  grid : TileGrid,
+) -> Result[PipelineResult, String] {
+  if self.image_width != grid.width || self.image_height != grid.height {
+    return Err("grid and accumulator image dimensions differ")
+  }
+  if !single_image(self.restored) {
+    return Err("grid cannot contain multiple image IDs")
+  }
+  if self.tile_windows.length() != grid.length() {
+    return Err("tile count does not match grid")
+  }
+  for id = 0; id < grid.length(); id = id + 1 {
+    let actual = match self.tile_windows.get(id) {
+      Some(value) => value
+      None => return Err("missing grid tile \{id}")
+    }
+    let expected = match grid.get(id) {
+      Some(value) => value
+      None => return Err("invalid grid tile \{id}")
+    }
+    if actual.x != expected.x ||
+      actual.y != expected.y ||
+      actual.width != expected.width ||
+      actual.height != expected.height {
+      return Err("tile geometry differs from grid at \{id}")
+    }
+  }
+  self.finish()
+}
+
+///|
 /// Remove all accepted data while retaining image dimensions and configuration.
 pub fn TileAccumulator::reset(self : TileAccumulator) -> Unit {
-  self.tile_ids.clear()
+  self.tile_windows.clear()
   self.detection_ids.clear()
   self.restored.clear()
 }

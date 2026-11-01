@@ -148,7 +148,7 @@ pub struct TileAccumulator {
   image_width : Int
   image_height : Int
   config : MergeConfig
-  tile_ids : @set.Set[Int]
+  tile_windows : Map[Int, Tile]
   detection_ids : @set.Set[Int]
   restored : Array[Detection]
 }
@@ -156,6 +156,7 @@ pub fn TileAccumulator::add_tile(Self, TilePredictions) -> Result[Unit, String]
 pub fn TileAccumulator::add_tiles(Self, Array[TilePredictions]) -> Result[Unit, String]
 pub fn TileAccumulator::detection_count(Self) -> Int
 pub fn TileAccumulator::finish(Self) -> Result[PipelineResult, String]
+pub fn TileAccumulator::finish_grid(Self, TileGrid) -> Result[PipelineResult, String]
 pub fn TileAccumulator::new(Int, Int, MergeConfig) -> Result[Self, String]
 pub fn TileAccumulator::reset(Self) -> Unit
 pub fn TileAccumulator::tile_count(Self) -> Int
@@ -176,6 +177,9 @@ pub fn TileGrid::new(Int, Int, Int, Int, Int, Int) -> Result[Self, String]
 
 type TileInput derive(@json.FromJson)
 pub fn TileInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+
+type TilePlanInput derive(@json.FromJson)
+pub fn TilePlanInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 
 pub(all) struct TilePredictions {
   tile : Tile
