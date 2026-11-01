@@ -18,6 +18,8 @@ node web/build.mjs
 node web/test.mjs
 node web/ui_test.mjs
 node web/stream_test.mjs
+moon package
+python validation/package_consumer.py --archive _build/publish/python123-ops-moontile-0.1.0.zip
 ```
 
 `moon run` 读取 JSON 文件，成功时向标准输出写入一行 JSON；错误写入标准错误并返回退出码 2。示例为合成数据。运行 `node web/build.mjs` 后，从 `_build/site` 启动静态 HTTP 服务并打开 `index.html`。页面调用编译为 JavaScript 的同一 MoonBit 核心。
@@ -69,6 +71,8 @@ MoonBit 调用方也可用 `StreamSession::new()` 和 `process_line` 逐行处�
 ## 项目关联与验证
 
 `examples/consumer` 是独立 MoonBit 模块，通过 workspace 引用源码，固定已发布的 MBMOT 0.3.0 和 MoonDetEval 0.1.0，展示框转换、显式类别映射、跟踪和 AP50 评估。测试还通过 MBMOT 自身解析器读取两帧切片合并结果，并检查跟踪身份延续。当前测试是合成样例，不代表模型精度。更高版本的 MoonDetEval 0.2.x 在本机 0.10.14 编译器上因 `Int32` 不可识别而未通过；不能将该 consumer 的结果推广到那些版本。
+
+`validation/package_consumer.py` 将 `moon package` 生成的 ZIP 解压到临时目录，再从同一 ZIP 复制 consumer，使用独立 workspace 指向解压后的模块；`moon update` 获取 MBMOT、MoonDetEval 和其他依赖后，测试全部四个后端。脚本输出所用 ZIP 的 SHA-256，并在结束时清理临时目录。CI 运行同一检查，以发现缺失打包文件或依赖原仓库路径的问题。MoonTile 尚未发布到 Mooncakes，此检查不等同于验证从 Mooncakes 安装。
 
 浏览器与原生 CLI 的 JSON 输出由 `web/test.mjs` 对照；核心测试覆盖切片、还原、NMS、类别隔离、同分、边界和非法输入。
 

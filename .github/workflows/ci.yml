@@ -30,3 +30,4 @@ jobs:
           if [ ! -x "$binary" ]; then binary=_build/native/debug/build/cmd/main/main; fi
           python validation/sahi_layout.py --sahi-dir _build/sahi-reference --binary "$binary" --output "$RUNNER_TEMP/sahi-layout-results.json"
       - run: moon package
+      - run: python validation/package_consumer.py --archive _build/publish/python123-ops-moontile-0.1.0.zip
