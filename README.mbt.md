@@ -59,7 +59,7 @@ JSON 每个切片可选择性增加 `transform`，各切片可以使用不同参
 
 归一化格式必须同时提供切片组级别的 `coordinate_width` 和 `coordinate_height`，均为正整数。无 `transform` 时它们必须等于切片尺寸；有 `transform` 时须填写检测器输出所处的模型输入尺寸，由调用方确保与实际预处理一致。像素格式可省略这两个字段；如果提供，也必须成对且为正整数，但不参与像素框转换。空预测切片同样校验格式和尺寸。转换后的结果、浏览器预览、COCO 导出与两种视频流使用同一处理流程。
 
-`suppress(detections, threshold, metric, class_agnostic=...)` 按得分降序执行贪心 NMS，同分保持输入顺序。默认按图像和类别分别处理；`class_agnostic=true` 只取消类别隔离，图像之间仍互不影响。支持 IoU 和交集除以较小框面积的 IoS，重叠度 **严格大于** 阈值时抑制。检测 ID 在同一调用中必须唯一，返回的抑制记录指出保留框 ID、被抑制框 ID 和重叠度。处理前会验证整个输入，错误不会返回部分结果。当前实现最坏需要比较二次方数量的框；CLI 一次读取完整文件，大规模输入应由调用方按图像拆分和限制大小。
+`suppress(detections, threshold, metric, class_agnostic=...)` 按得分降序执行贪心 NMS，同分保持输入顺序。默认按图像和类别分别处理；`class_agnostic=true` 只取消类别隔离，图像之间仍互不影响。支持 IoU 和交集除以较小框面积的 IoS，重叠度 **严格大于** 阈值时抑制。检测 ID 在同一调用中必须唯一，返回的抑制记录指出保留框 ID、被抑制框 ID 和重叠度。处理前会验证整个输入，错误不会返回部分结果。NMS 和外接框合并按图像、类别建立索引以跳过无关分组；单组内部最坏仍需要比较二次方数量的框，并需额外空间保存索引。CLI 一次读取完整文件，大规模输入应由调用方按图像拆分和限制大小。
 
 对于跨切片的部分框，可以选择 `merge_envelopes`：先按分数和输入顺序选出种子，将与**原始种子框**重叠度严格超过阈值的框归入同一组，并输出覆盖整组的外接框。匹配不使用不断扩大的外接框，也不进行传递合并；代表框保留种子的 ID、图像、切片、类别与最高分，其他成员及其与种子的重叠度记录在 `suppressed` 中。默认按图像和类别隔离；`class_agnostic=true` 时可以跨类别合并，输出仍采用种子的类别。高重叠目标可能被合为一个框，阈值需结合具体数据验证。
 
@@ -102,6 +102,14 @@ moon run cmd/main --target native -- --trace-stream < examples/stream.ndjson
 `validation/package_consumer.py` 将 `moon package` 生成的 ZIP 解压到临时目录，再从同一 ZIP 复制 consumer，使用独立 workspace 指向解压后的模块；`moon update` 获取 MBMOT、MoonDetEval 和其他依赖后，测试全部四个后端。脚本输出所用 ZIP 的 SHA-256，并在结束时清理临时目录。CI 运行同一检查，以发现缺失打包文件或依赖原仓库路径的问题。MoonTile 尚未发布到 Mooncakes，此检查不等同于验证从 Mooncakes 安装。
 
 浏览器与原生 CLI 的 JSON 输出由 `web/test.mjs` 对照；核心测试覆盖切片、还原、NMS、类别隔离、同分、边界和非法输入。
+
+`validation/grouping_compare.py` 使用合成的互不相交框对比索引优化前后的原生命令行；同时检查完整输出逐字节一致。一次 Windows 本地运行中，8000 框、100 类的 NMS 耗时中位数从约 0.165 秒降至 0.138 秒，贪心外接框合并从约 1.110 秒降至 0.148 秒；1200 框、单类别场景的 NMS 从约 0.0355 秒增加到 0.0367 秒，外接框合并从约 0.0451 秒增加到 0.0483 秒。每组预热一次、交替运行三次，耗时包含进程启动和 JSON 处理。具体样本、二进制及源码哈希见 `validation/grouping-results.json`；这些合成结果不代表真实检测任务的性能。
+
+复现性能对照时，分别用优化前提交 `bdcc2f0` 和当前代码构建原生 release 可执行文件，然后运行：
+
+```sh
+python validation/grouping_compare.py --before <before-cli> --after <after-cli> --before-revision bdcc2f0 --repeat 3 --output <output.json>
+```
 
 `validation/sahi_compare.py` 从固定的 SAHI 0.11.14 源码中提取原始 NMS 和贪心 NMM 分组函数，并以 PyTorch 运行参考实现。固定种子的 80 组、每组 25 框的单图单类别无同分场景覆盖 IoU 和 IoS；NMM 外接框另按组内坐标核对，结果见 `validation/sahi-results.json`。本库在重叠度等于阈值时保留，SAHI 0.11.14 在相等时抑制或合并；脚本单独验证这一差异。本对照未涵盖多类别、掩码或同分行为。
 

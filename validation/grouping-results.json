@@ -1,0 +1,105 @@
+{
+  "command": "python validation/grouping_compare.py --before <before-cli> --after <after-cli> --before-revision <commit> --repeat 3 --output <output.json>",
+  "before_revision": "bdcc2f0",
+  "before_binary_sha256": "3c0f655bb10326641b433c3e0382b3884b60909cff0f1913e9ab0f6d8cbaaac3",
+  "after_binary_sha256": "c0e432e474e90fbced16b257e900aae25b319e164bf2b5f54e20055a216973ff",
+  "after_source_sha256": {
+    "nms.mbt": "a7ff7db2bcfdd5660407e3f74935077c82d36a90e8139bba730650a7dc0d8b6e",
+    "merge.mbt": "2217f96b90e55e5ddec624804b3181021a339eae0c14a4ca3fd482269f2826d0"
+  },
+  "python": "3.8.7",
+  "platform": "Windows-10-10.0.26100-SP0",
+  "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+  "toolchain": "moon 0.1.20260920 (914d7da 2026-09-20) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moon.exe\nmoonc v0.10.14+7d59c7ec9 (2026-09-18) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moonc.exe\nmoonrun 0.1.20260920 (914d7da 2026-09-20) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moonrun.exe\n\nFeature flags enabled: rr_moon_mod,rr_moon_pkg",
+  "build_mode": "native release for both binaries",
+  "repeat": 3,
+  "warmups_per_binary": 1,
+  "seed": null,
+  "scope": "Synthetic disjoint boxes; equal scores; one image; timings include CLI startup and JSON; not an inference benchmark",
+  "results": [
+    {
+      "scenario": "many_classes",
+      "strategy": "nms",
+      "detections": 8000,
+      "classes": 100,
+      "input_sha256": "b85e4f359ac72bac1fa52f8ffd990c1efe05f8d4bd0e9e49c2f573ce942499d4",
+      "outputs_identical": true,
+      "before_seconds": [
+        0.16565040000000003,
+        0.16520979999999996,
+        0.16401319999999986
+      ],
+      "after_seconds": [
+        0.1353645,
+        0.13809720000000003,
+        0.1375286
+      ],
+      "before_median_seconds": 0.16520979999999996,
+      "after_median_seconds": 0.1375286,
+      "median_speedup": 1.201275952783639
+    },
+    {
+      "scenario": "many_classes",
+      "strategy": "greedy_nmm",
+      "detections": 8000,
+      "classes": 100,
+      "input_sha256": "5ede9ee6cced9f50132d651e2a72a783ff2c1933c0171066c311a59044ea942d",
+      "outputs_identical": true,
+      "before_seconds": [
+        1.1407488,
+        1.1101535,
+        1.0913952999999994
+      ],
+      "after_seconds": [
+        0.14752589999999977,
+        0.15183579999999974,
+        0.13225609999999932
+      ],
+      "before_median_seconds": 1.1101535,
+      "after_median_seconds": 0.14752589999999977,
+      "median_speedup": 7.525143042679297
+    },
+    {
+      "scenario": "single_class",
+      "strategy": "nms",
+      "detections": 1200,
+      "classes": 1,
+      "input_sha256": "5051dc029674b9c8f5d3591223cd4f11707b96a13daa2735b217136e4ec751e0",
+      "outputs_identical": true,
+      "before_seconds": [
+        0.0353880000000002,
+        0.035463199999999695,
+        0.03665909999999961
+      ],
+      "after_seconds": [
+        0.035534900000000036,
+        0.045218400000000436,
+        0.036688299999999785
+      ],
+      "before_median_seconds": 0.035463199999999695,
+      "after_median_seconds": 0.036688299999999785,
+      "median_speedup": 0.9666078831671105
+    },
+    {
+      "scenario": "single_class",
+      "strategy": "greedy_nmm",
+      "detections": 1200,
+      "classes": 1,
+      "input_sha256": "831f1b55b6aa0b85a46f3c4efbe2800091c2daeb759e1ab14aa182629f7094ca",
+      "outputs_identical": true,
+      "before_seconds": [
+        0.05133450000000028,
+        0.044329799999999864,
+        0.045104100000000535
+      ],
+      "after_seconds": [
+        0.04832590000000003,
+        0.048472199999999965,
+        0.04587330000000023
+      ],
+      "before_median_seconds": 0.045104100000000535,
+      "after_median_seconds": 0.04832590000000003,
+      "median_speedup": 0.9333318158585873
+    }
+  ]
+}

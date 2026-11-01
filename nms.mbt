@@ -54,6 +54,12 @@ fn rank_detections(
 }
 
 ///|
+// Global rank stays authoritative; this key only narrows possible matches.
+fn detection_group(detection : Detection, class_agnostic : Bool) -> (Int, Int) {
+  (detection.image_id, if class_agnostic { 0 } else { detection.class_id })
+}
+
+///|
 /// Greedy NMS per image and class. Suppresses when overlap > threshold.
 /// Equal scores retain input order. IDs must be unique in the whole batch.
 pub fn suppress(
@@ -68,25 +74,27 @@ pub fn suppress(
   }
   let kept : Array[Detection] = []
   let suppressed : Array[Suppression] = []
+  let groups : Map[(Int, Int), Array[Detection]] = Map([])
   for (_, candidate) in ranked {
+    let group = groups.get_or_init(detection_group(candidate, class_agnostic), fn() {
+      []
+    })
     let mut matched = false
-    for previous in kept {
-      if previous.image_id == candidate.image_id &&
-        (class_agnostic || previous.class_id == candidate.class_id) {
-        let value = overlap_value(previous.box, candidate.box, metric)
-        if value > threshold {
-          suppressed.push({
-            suppressed_id: candidate.id,
-            kept_id: previous.id,
-            overlap: value,
-          })
-          matched = true
-          break
-        }
+    for previous in group {
+      let value = overlap_value(previous.box, candidate.box, metric)
+      if value > threshold {
+        suppressed.push({
+          suppressed_id: candidate.id,
+          kept_id: previous.id,
+          overlap: value,
+        })
+        matched = true
+        break
       }
     }
     if !matched {
       kept.push(candidate)
+      group.push(candidate)
     }
   }
   Ok({ kept, suppressed, })

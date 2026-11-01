@@ -17,16 +17,21 @@ pub fn merge_envelopes(
   let consumed : Set[Int] = Set([])
   let kept : Array[Detection] = []
   let merged : Array[Suppression] = []
+  let groups : Map[(Int, Int), Array[Detection]] = Map([])
+  for (_, candidate) in ranked {
+    groups
+    .get_or_init(detection_group(candidate, class_agnostic), fn() { [] })
+    .push(candidate)
+  }
   for (_, seed) in ranked {
     if consumed.contains(seed.id) {
       continue
     }
     consumed.add(seed.id)
     let mut bounds = seed.box
-    for (_, candidate) in ranked {
-      if consumed.contains(candidate.id) ||
-        seed.image_id != candidate.image_id ||
-        (!class_agnostic && seed.class_id != candidate.class_id) {
+    let group = groups[detection_group(seed, class_agnostic)]
+    for candidate in group {
+      if consumed.contains(candidate.id) {
         continue
       }
       let value = overlap_value(seed.box, candidate.box, metric)
