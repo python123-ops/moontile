@@ -3,6 +3,7 @@ package "python123-ops/moontile"
 
 import {
   "moonbitlang/core/json",
+  "moonbitlang/core/set",
 }
 
 // Values
@@ -140,6 +141,21 @@ pub(all) struct Tile {
 } derive(ToJson, @json.FromJson)
 pub fn Tile::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Tile::to_json(Self) -> Json
+
+pub struct TileAccumulator {
+  image_width : Int
+  image_height : Int
+  config : MergeConfig
+  tile_ids : @set.Set[Int]
+  detection_ids : @set.Set[Int]
+  restored : Array[Detection]
+}
+pub fn TileAccumulator::add_tile(Self, TilePredictions) -> Result[Unit, String]
+pub fn TileAccumulator::detection_count(Self) -> Int
+pub fn TileAccumulator::finish(Self) -> Result[PipelineResult, String]
+pub fn TileAccumulator::new(Int, Int, MergeConfig) -> Result[Self, String]
+pub fn TileAccumulator::reset(Self) -> Unit
+pub fn TileAccumulator::tile_count(Self) -> Int
 
 pub struct TileGrid {
   width : Int

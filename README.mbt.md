@@ -67,6 +67,8 @@ JSON 每个切片可选择性增加 `transform`，各切片可以使用不同参
 
 MoonBit 调用方可以使用类型化的 `process_tiles(image_width, image_height, tiles, config)` 一次完成还原和合并，无需组装 JSON。`TilePredictions` 包含 `tile`、`detections` 和可选 `transform`；`MergeConfig` 指定阈值、重叠度量、是否跨类别处理以及 `Nms` 或 `GreedyNmm` 策略。结果的 `restored` 保持输入顺序，`merged` 包含排序后的保留框和溯源记录。所有切片在一次调用中共用图像尺寸；不同图像 ID 的框互不合并，检测 ID 在整个调用中必须唯一。任一切片或检测无效时返回错误，不返回部分结果。完整类型化接入示例见 [examples/consumer/bridge_wbtest.mbt](examples/consumer/bridge_wbtest.mbt)。
 
+逐切片接收结果时，可用 `TileAccumulator::new(image_width, image_height, config)` 创建累积器，并通过 `add_tile` 依次加入 `TilePredictions`。每次添加会先校验整个切片、转换坐标并检查标识是否重复；失败时先前数据保持不变，可以修正后重试。`tile_count` 和 `detection_count` 查询已接受的数量，`finish` 执行全局合并并返回独立快照，`reset` 清空数据但保留尺寸和配置。`finish` 不清空累积器，之后仍可添加；同分框按切片加入和框在切片内的顺序处理。合并前仍须保存全部已接收检测，内存随检测数量增长；它不会提前确定最终保留框。
+
 JSON 处理入口要求图像和切片尺寸、切片位置、检测标识和类别标识为 32 位整数；类别映射 ID 和流帧号也必须为整数。数值上为整数的 `1.0`、`1e0` 等写法可用，解析后的非整数值会报错；数值先按双精度解析，极接近整数或极小的数可能发生舍入。检测框坐标、分数和阈值仍可使用小数。以上检查适用于 MoonTile 的 JSON 入口；如果调用方直接使用 MoonBit 的通用 `FromJson` 解码公开类型，需要自行验证输入。
 
 需要把合并结果交给 MoonDetEval 或其他 COCO bbox 评估器时，CLI 增加 `--coco-map`，输出 COCO 检测结果数组而不是诊断对象。映射文件是 `[{"class_id":0,"category_id":7}]` 形式的 JSON 数组；完整示例见 [examples/coco-map.json](examples/coco-map.json)。每个保留框的类别都必须有映射，重复的 `class_id`、负数 ID、格式错误和缺失映射会使命令报错，标准输出保持为空。多个 class 可以映射到同一个 category；类别映射发生在 NMS 之后，不影响原有的按检测类别去重。输出的 `bbox` 使用连续 `xywh`，顺序与保留结果一致，不裁剪，也不包含 MoonTile 内部检测 ID。

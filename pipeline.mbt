@@ -100,48 +100,25 @@ pub fn process_tiles(
   tiles : Array[TilePredictions],
   config : MergeConfig,
 ) -> Result[PipelineResult, String] {
-  let restored : Array[Detection] = []
-  let tile_ids : Set[Int] = Set([])
+  let accumulator = match
+    TileAccumulator::new(image_width, image_height, config) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
   for group in tiles {
-    if !tile_ids.add_and_check(group.tile.id) {
-      return Err("duplicate tile id")
-    }
-    let t = group.tile
-    match group.transform {
-      Some(transform) =>
-        if !valid_transform(transform) {
-          return Err("invalid model transform")
-        }
-      None => ()
-    }
-    if image_width <= 0 ||
-      image_height <= 0 ||
-      t.id < 0 ||
-      t.x < 0 ||
-      t.y < 0 ||
-      t.width <= 0 ||
-      t.height <= 0 ||
-      t.width > image_width ||
-      t.height > image_height ||
-      t.x > image_width - t.width ||
-      t.y > image_height - t.height {
-      return Err("invalid tile or image dimensions")
-    }
-    for record in group.detections {
-      let result = match group.transform {
-        Some(transform) =>
-          restore_model(t, record, image_width, image_height, transform)
-        None => restore(t, record, image_width, image_height)
-      }
-      match result {
-        Ok(value) => restored.push(value)
-        Err(message) => return Err(message)
-      }
+    match accumulator.add_tile(group) {
+      Ok(_) => ()
+      Err(message) => return Err(message)
     }
   }
-  if image_width <= 0 || image_height <= 0 {
-    return Err("invalid image dimensions")
-  }
+  accumulator.finish()
+}
+
+///|
+fn merge_restored(
+  restored : Array[Detection],
+  config : MergeConfig,
+) -> Result[PipelineResult, String] {
   let merged = match config.strategy {
     Nms =>
       suppress(
