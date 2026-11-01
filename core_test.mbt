@@ -13,6 +13,82 @@ fn detection(
 }
 
 ///|
+test "model coordinates invert resize and padding and enforce clipping" {
+  let tile : @moontile.Tile = { id: 2, x: 40, y: 30, width: 60, height: 40, }
+  let transform : @moontile.ModelTransform = {
+    scale_x: 2.0,
+    scale_y: 1.5,
+    pad_x: 10.0,
+    pad_y: 5.0,
+    clip: false,
+  }
+  let model = detection(4, 2, 0, 0.8, 30.0, 12.5, 50.0, 23.0)
+  let result = @moontile.restore_model(tile, model, 100, 70, transform).unwrap()
+  assert_eq(result.box.x1, 50.0)
+  assert_eq(result.box.y1, 35.0)
+  assert_eq(result.box.x2, 60.0)
+  assert_eq(result.box.y2, 42.0)
+  let outside = detection(4, 2, 0, 0.8, 0.0, 5.0, 30.0, 20.0)
+  assert_true(
+    @moontile.restore_model(tile, outside, 100, 70, transform) is Err(_),
+  )
+  let clipped = @moontile.restore_model(tile, outside, 100, 70, {
+    ..transform,
+    clip: true,
+  }).unwrap()
+  assert_eq(clipped.box.x1, 40.0)
+  assert_eq(clipped.box.x2, 50.0)
+  let padding = detection(4, 2, 0, 0.8, 0.0, 5.0, 9.0, 20.0)
+  assert_true(
+    @moontile.restore_model(tile, padding, 100, 70, { ..transform, clip: true, })
+    is Err(_),
+  )
+  assert_true(
+    @moontile.restore_model(tile, model, 100, 70, { ..transform, scale_x: 0.0, })
+    is Err(_),
+  )
+  assert_true(
+    @moontile.restore_model(tile, model, 100, 70, {
+      ..transform,
+      scale_y: -1.0,
+    })
+    is Err(_),
+  )
+  assert_true(
+    @moontile.restore_model(tile, model, 100, 70, { ..transform, pad_x: -1.0, })
+    is Err(_),
+  )
+  assert_true(
+    @moontile.restore_model(tile, model, 100, 70, {
+      ..transform,
+      scale_x: 0.0 / 0.0,
+    })
+    is Err(_),
+  )
+  assert_true(
+    @moontile.restore_model(tile, model, 100, 70, {
+      ..transform,
+      pad_y: 1.0 / 0.0,
+    })
+    is Err(_),
+  )
+  assert_true(
+    @moontile.restore_model(tile, model, 100, 70, {
+      ..transform,
+      scale_x: 1.0e-320,
+    })
+    is Err(_),
+  )
+  assert_true(
+    @moontile.restore_model(tile, { ..model, tile_id: 3, }, 100, 70, transform)
+    is Err(_),
+  )
+  let invalid =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":60,"height":60},"transform":{"scale_x":0,"scale_y":1,"pad_x":0,"pad_y":0,"clip":false},"detections":[]}]}
+  assert_true(@moontile.process_json(invalid) is Err(_))
+}
+
+///|
 test "tile coverage and edge anchoring" {
   let tiles = @moontile.plan_tiles(100, 70, 60, 40, 20, 10).unwrap()
   assert_eq(tiles.length(), 4)

@@ -22,6 +22,8 @@ pub fn process_mbmot_json(String, Int) -> Result[String, String]
 
 pub fn restore(Tile, Detection, Int, Int) -> Result[Detection, String]
 
+pub fn restore_model(Tile, Detection, Int, Int, ModelTransform) -> Result[Detection, String]
+
 pub fn suppress(Array[Detection], Double, Overlap, class_agnostic? : Bool) -> Result[MergeResult, String]
 
 // Errors
@@ -57,6 +59,15 @@ pub(all) struct MergeResult {
   kept : Array[Detection]
   suppressed : Array[Suppression]
 }
+
+pub(all) struct ModelTransform {
+  scale_x : Double
+  scale_y : Double
+  pad_x : Double
+  pad_y : Double
+  clip : Bool
+} derive(@json.FromJson)
+pub fn ModelTransform::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 
 pub(all) enum Overlap {
   IoU

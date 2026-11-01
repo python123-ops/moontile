@@ -2,6 +2,7 @@
 struct TileInput {
   tile : Tile
   detections : Array[Detection]
+  transform : ModelTransform?
 } derive(FromJson)
 
 ///|
@@ -45,6 +46,13 @@ fn process_data(source : String) -> Result[Processed, String] {
       return Err("duplicate tile id")
     }
     let t = group.tile
+    match group.transform {
+      Some(transform) =>
+        if !valid_transform(transform) {
+          return Err("invalid model transform")
+        }
+      None => ()
+    }
     if input.image_width <= 0 ||
       input.image_height <= 0 ||
       t.id < 0 ||
@@ -59,7 +67,18 @@ fn process_data(source : String) -> Result[Processed, String] {
       return Err("invalid tile or image dimensions")
     }
     for record in group.detections {
-      match restore(t, record, input.image_width, input.image_height) {
+      let result = match group.transform {
+        Some(transform) =>
+          restore_model(
+            t,
+            record,
+            input.image_width,
+            input.image_height,
+            transform,
+          )
+        None => restore(t, record, input.image_width, input.image_height)
+      }
+      match result {
         Ok(value) => restored.push(value)
         Err(message) => return Err(message)
       }

@@ -8,6 +8,7 @@ MoonTile 将多个图像切片上的目标检测框还原到原图坐标，并�
 moon test --target all --deny-warn
 moon run cmd/main --target native -- examples/input.json
 moon run cmd/main --target native -- examples/partial-input.json
+moon run cmd/main --target native -- examples/model-input.json
 moon run cmd/main --target native -- examples/input.json --coco-map examples/coco-map.json
 moon run cmd/main --target native -- examples/input.json --mbmot-frame 1
 moon -C examples/consumer test --target all --deny-warn
@@ -23,6 +24,10 @@ node web/stream_test.mjs
 `plan_tiles(width, height, tile_width, tile_height, overlap_x, overlap_y)` 生成覆盖原图的窗口，按照从上到下、从左到右编号。重叠量以整数像素表示；最后窗口贴住图像边缘，因此其实际重叠量可能大于请求值。图像小于窗口时，窗口尺寸缩小到图像尺寸。为避免意外分配，最多生成 100 万窗口。
 
 `restore(tile, detection, image_width, image_height)` 验证切片和局部框并平移到原图。窗口边界采用半开区间；框使用连续 `xyxy`，面积为 `(x2-x1)*(y2-y1)`，不做 `+1`。局部框必须完全位于切片内，允许坐标位于切片边缘，不自动裁剪；退化、非有限、面积数值下溢以及平移后因浮点舍入失去正面积的框会被拒绝。检测分数须在 `[0,1]`，标识符和类别必须非负。
+
+模型输出仍处于缩放、填充后的输入坐标时，可使用 `restore_model(tile, detection, image_width, image_height, transform)`。`ModelTransform` 描述实际预处理：`model_x = local_x * scale_x + pad_x`，纵轴同理；缩放必须为有限正数，左侧和顶部填充必须为有限非负数。框必须是模型输入上的绝对连续 `xyxy` 像素坐标，调用方负责提供实际缩放和填充值；已被推理框架还原的框应直接使用 `restore`。`clip=false` 时越出切片的框报错；`clip=true` 时先裁剪到切片，完全落在填充区或裁剪后失去面积的框仍报错。非有限结果、数值溢出和无效输入均被拒绝。
+
+JSON 每个切片可选择性增加 `transform`，各切片可以使用不同参数，也可以和原有切片局部坐标混用，见 [examples/model-input.json](examples/model-input.json)。省略该字段沿用原有行为；即使检测列表为空也会验证变换参数。所有合并、COCO 和 MBMOT 输出共用同一转换流程。
 
 `suppress(detections, threshold, metric, class_agnostic=...)` 按得分降序执行贪心 NMS，同分保持输入顺序。默认按图像和类别分别处理；`class_agnostic=true` 只取消类别隔离，图像之间仍互不影响。支持 IoU 和交集除以较小框面积的 IoS，重叠度 **严格大于** 阈值时抑制。检测 ID 在同一调用中必须唯一，返回的抑制记录指出保留框 ID、被抑制框 ID 和重叠度。处理前会验证整个输入，错误不会返回部分结果。当前实现最坏需要比较二次方数量的框；CLI 一次读取完整文件，大规模输入应由调用方按图像拆分和限制大小。
 
