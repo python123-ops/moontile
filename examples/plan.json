@@ -1,0 +1,8 @@
+{
+  "image_width": 100,
+  "image_height": 60,
+  "tile_width": 60,
+  "tile_height": 60,
+  "overlap_x": 20,
+  "overlap_y": 0
+}

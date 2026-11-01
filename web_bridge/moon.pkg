@@ -7,5 +7,10 @@ supported_targets = "js"
 pkgtype(kind: "foreign_library")
 
 options(
-  link: { "js": { "exports": [ "moontile_process" ], "format": "esm" } },
+  link: {
+    "js": {
+      "exports": [ "moontile_process", "moontile_plan" ],
+      "format": "esm",
+    },
+  },
 )

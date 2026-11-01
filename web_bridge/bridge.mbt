@@ -6,3 +6,12 @@ pub fn moontile_process(source : String) -> String {
     Err(message) => Json::object({ "error": message.to_json() }).stringify()
   }
 }
+
+///|
+/// Plan windows using the same JSON contract as the native CLI.
+pub fn moontile_plan(source : String) -> String {
+  match @moontile.plan_json(source) {
+    Ok(output) => output
+    Err(message) => Json::object({ "error": message.to_json() }).stringify()
+  }
+}

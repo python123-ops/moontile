@@ -104,6 +104,24 @@ test "tile coverage and edge anchoring" {
 }
 
 ///|
+test "JSON planning validates fields and returns row-major windows" {
+  let request =
+    #|{"image_width":100,"image_height":60,"tile_width":60,"tile_height":60,"overlap_x":20,"overlap_y":0}
+  let output = @moontile.plan_json(request).unwrap()
+  let expected =
+    #|{"image_width":100,"image_height":60,"tiles":[{"id":0,"x":0,"y":0,"width":60,"height":60},{"id":1,"x":40,"y":0,"width":60,"height":60}]}
+  assert_eq(output, expected)
+  assert_true(@moontile.plan_json("{") is Err(_))
+  assert_true(@moontile.plan_json("{}") is Err(_))
+  let invalid =
+    #|{"image_width":10,"image_height":10,"tile_width":5,"tile_height":5,"overlap_x":5,"overlap_y":0}
+  assert_true(@moontile.plan_json(invalid) is Err(_))
+  let fractional =
+    #|{"image_width":10.5,"image_height":10,"tile_width":5,"tile_height":5,"overlap_x":0,"overlap_y":0}
+  assert_true(@moontile.plan_json(fractional) is Err(_))
+}
+
+///|
 test "restore and reject invalid inputs" {
   let tile : @moontile.Tile = { id: 2, x: 40, y: 30, width: 60, height: 40, }
   let sample = detection(4, 2, 0, 0.8, 10.0, 5.0, 20.0, 12.0)

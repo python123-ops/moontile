@@ -21,10 +21,11 @@ async fn main {
     return
   }
   if args.length() != 2 &&
+    !(args.length() == 3 && args[2] == "--plan") &&
     !(args.length() == 4 &&
     (args[2] == "--coco-map" || args[2] == "--mbmot-frame")) {
     @stdio.stderr.write(
-      "usage: moontile INPUT.json [--coco-map MAPPING.json | --mbmot-frame FRAME] | moontile --mbmot-stream\n",
+      "usage: moontile INPUT.json [--plan | --coco-map MAPPING.json | --mbmot-frame FRAME] | moontile --mbmot-stream\n",
     )
     exit_process(2)
     return
@@ -36,7 +37,9 @@ async fn main {
       return
     }
   }
-  let result = if args.length() == 4 && args[2] == "--coco-map" {
+  let result = if args.length() == 3 {
+    @moontile.plan_json(content)
+  } else if args.length() == 4 && args[2] == "--coco-map" {
     let mapping = @fs.read_file(args[3]).text() catch {
       _ => {
         @stdio.stderr.write("cannot read UTF-8 mapping\n")

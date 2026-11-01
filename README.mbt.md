@@ -7,6 +7,8 @@ MoonTile 将多个图像切片上的目标检测框还原到原图坐标，并�
 ```sh
 moon test --target all --deny-warn
 moon run cmd/main --target native -- examples/input.json
+moon run cmd/main --target native -- examples/plan.json --plan
+node examples/plan-consumer.mjs
 moon run cmd/main --target native -- examples/partial-input.json
 moon run cmd/main --target native -- examples/model-input.json
 moon run cmd/main --target native -- examples/input.json --coco-map examples/coco-map.json
@@ -22,6 +24,8 @@ node web/stream_test.mjs
 ## 使用与行为
 
 `plan_tiles(width, height, tile_width, tile_height, overlap_x, overlap_y)` 生成覆盖原图的窗口，按照从上到下、从左到右编号。重叠量以整数像素表示；最后窗口贴住图像边缘，因此其实际重叠量可能大于请求值。图像小于窗口时，窗口尺寸缩小到图像尺寸。为避免意外分配，最多生成 100 万窗口。
+
+外部程序可以使用 `moon run cmd/main --target native -- examples/plan.json --plan` 获取切片，或者调用 `plan_json`。请求包含图像尺寸 `image_width`、`image_height`，窗口尺寸 `tile_width`、`tile_height`，以及重叠像素 `overlap_x`、`overlap_y`；所有字段必须为 32 位整数。返回对象包含图像尺寸和 `tiles` 数组，数组项为 `{id,x,y,width,height}`。错误时 CLI 写入标准错误并以非零状态退出，不输出部分窗口。`examples/plan-consumer.mjs` 展示外部 Node.js 程序先获取窗口，再将窗口与预测组装为处理输入；示例预测是合成数据，实际使用时应替换为检测器对对应窗口产生的局部预测。JavaScript 构建还导出 `moontile_plan`，错误以带 `error` 字段的 JSON 对象返回。
 
 `restore(tile, detection, image_width, image_height)` 验证切片和局部框并平移到原图。窗口边界采用半开区间；框使用连续 `xyxy`，面积为 `(x2-x1)*(y2-y1)`，不做 `+1`。局部框必须完全位于切片内，允许坐标位于切片边缘，不自动裁剪；退化、非有限、面积数值下溢以及平移后因浮点舍入失去正面积的框会被拒绝。检测分数须在 `[0,1]`，标识符和类别必须非负。
 
