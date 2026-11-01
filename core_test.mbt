@@ -517,6 +517,45 @@ test "stream rejects errors without advancing and allows reset" {
 }
 
 ///|
+test "trace stream retains diagnostics and shares frame state" {
+  let data =
+    #|{"image_width":10,"image_height":10,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":10,"height":10},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.9,"box":{"x1":0,"y1":0,"x2":5,"y2":5}},{"id":2,"image_id":1,"tile_id":0,"class_id":0,"score":0.8,"box":{"x1":0,"y1":0,"x2":5,"y2":5}}]}]}
+  let session = @moontile.StreamSession::new()
+  let output = session
+    .process_trace_line("{\"frame\":1,\"input\":" + data + "}")
+    .unwrap()
+  assert_eq(
+    output,
+    "{\"frame\":1,\"result\":" + @moontile.process_json(data).unwrap() + "}",
+  )
+  assert_true(session.last_frame() is Some(1))
+  let mixed = data.replace(
+    old="\"id\":2,\"image_id\":1",
+    new="\"id\":2,\"image_id\":2",
+  )
+  assert_true(
+    session.process_trace_line("{\"frame\":2,\"input\":" + mixed + "}")
+    is Err(_),
+  )
+  assert_true(session.last_frame() is Some(1))
+  assert_true(
+    session.process_trace_line("{\"frame\":2.5,\"input\":" + data + "}")
+    is Err(_),
+  )
+  assert_true(session.last_frame() is Some(1))
+  assert_true(
+    session.process_line("{\"frame\":2,\"input\":" + data + "}") is Ok(_),
+  )
+  assert_true(
+    session.process_trace_line("{\"frame\":2,\"input\":" + data + "}") is Err(_),
+  )
+  session.reset()
+  assert_true(
+    session.process_trace_line("{\"frame\":1,\"input\":" + data + "}") is Ok(_),
+  )
+}
+
+///|
 test "envelope merging uses the original seed rather than transitive overlap" {
   let a = detection(1, 0, 0, 0.9, 0.0, 0.0, 10.0, 10.0)
   let b = detection(2, 1, 0, 0.8, 8.0, 0.0, 18.0, 10.0)

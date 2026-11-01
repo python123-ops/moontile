@@ -18,6 +18,7 @@ node web/build.mjs
 node web/test.mjs
 node web/ui_test.mjs
 node web/stream_test.mjs
+node web/trace_stream_test.mjs
 moon package
 python validation/package_consumer.py --archive _build/publish/python123-ops-moontile-0.1.0.zip
 ```
@@ -67,6 +68,14 @@ moon run cmd/main --target native -- --mbmot-stream < examples/stream.ndjson
 每条成功输入即时输出一条可供 MBMOT replay 消费的 NDJSON，帧号必须是严格递增的正整数，允许跳帧；空检测帧有效。错误信息包含物理行号，CLI 以非零状态退出，先前完整输出仍保留；空行也按无效 JSON 处理。每个进程只处理一条流，跟踪仍由下游 MBMOT 完成；调用方须保证输入坐标尺度跨帧一致。CLI 按行读取，不限制单行大小，接入不受信任来源时应由调用方限制输入大小。
 
 MoonBit 调用方也可用 `StreamSession::new()` 和 `process_line` 逐行处理。无效输入不会改变该会话的最后成功帧号，调用方可以修正并重试；`last_frame()` 查询进度，`reset()` 开始新流。CLI 遇错退出，不自动重试。
+
+其他下游程序需要保留切片来源和抑制诊断时，可以对相同的 NDJSON 输入使用 `--trace-stream`：
+
+```sh
+moon run cmd/main --target native -- --trace-stream < examples/stream.ndjson
+```
+
+每帧输出 `{"frame":1,"result":{"restored":[...],"kept":[...],"suppressed":[...]}}`；`result` 与对该帧调用 `process_json` 的结果一致。MoonBit 调用方可用 `StreamSession::process_trace_line`，与 `process_line` 共用帧号状态。两种流模式都要求帧号严格递增、单帧检测属于同一图像，允许空检测帧；输入无效时不会推进会话。CLI 出错后保留先前完整帧并退出，不输出失败帧。
 
 ## 项目关联与验证
 

@@ -110,6 +110,7 @@ pub struct StreamSession {
 pub fn StreamSession::last_frame(Self) -> Int?
 pub fn StreamSession::new() -> Self
 pub fn StreamSession::process_line(Self, String) -> Result[String, String]
+pub fn StreamSession::process_trace_line(Self, String) -> Result[String, String]
 pub fn StreamSession::reset(Self) -> Unit
 
 pub(all) struct Suppression {

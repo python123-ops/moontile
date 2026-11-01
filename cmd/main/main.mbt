@@ -4,12 +4,18 @@ extern "C" fn exit_process(code : Int) = "exit"
 ///|
 async fn main {
   let args = @env.args()
-  if args.length() == 2 && args[1] == "--mbmot-stream" {
+  if args.length() == 2 &&
+    (args[1] == "--mbmot-stream" || args[1] == "--trace-stream") {
     let session = @moontile.StreamSession::new()
     let mut line_number = 0
     while @stdio.stdin.read_until("\n") is Some(line) {
       line_number += 1
-      match session.process_line(line.to_string()) {
+      let result = if args[1] == "--trace-stream" {
+        session.process_trace_line(line.to_string())
+      } else {
+        session.process_line(line.to_string())
+      }
+      match result {
         Ok(output) => @stdio.stdout.write(output + "\n")
         Err(message) => {
           @stdio.stderr.write("line \{line_number}: " + message + "\n")
@@ -25,7 +31,7 @@ async fn main {
     !(args.length() == 4 &&
     (args[2] == "--coco-map" || args[2] == "--mbmot-frame")) {
     @stdio.stderr.write(
-      "usage: moontile INPUT.json [--plan | --coco-map MAPPING.json | --mbmot-frame FRAME] | moontile --mbmot-stream\n",
+      "usage: moontile INPUT.json [--plan | --coco-map MAPPING.json | --mbmot-frame FRAME] | moontile --mbmot-stream | moontile --trace-stream\n",
     )
     exit_process(2)
     return

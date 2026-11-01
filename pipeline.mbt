@@ -169,6 +169,11 @@ pub fn process_json(source : String) -> Result[String, String] {
     Ok(value) => value
     Err(message) => return Err(message)
   }
+  Ok(pipeline_result_json(processed).stringify())
+}
+
+///|
+fn pipeline_result_json(processed : PipelineResult) -> Json {
   let trace = processed.merged.suppressed.map(fn(item) {
     Json::object({
       "suppressed_id": item.suppressed_id.to_json(),
@@ -176,11 +181,9 @@ pub fn process_json(source : String) -> Result[String, String] {
       "overlap": item.overlap.to_json(),
     })
   })
-  Ok(
-    Json::object({
-      "restored": processed.restored.to_json(),
-      "kept": processed.merged.kept.to_json(),
-      "suppressed": trace.to_json(),
-    }).stringify(),
-  )
+  Json::object({
+    "restored": processed.restored.to_json(),
+    "kept": processed.merged.kept.to_json(),
+    "suppressed": trace.to_json(),
+  })
 }
