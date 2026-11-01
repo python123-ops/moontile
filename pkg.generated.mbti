@@ -40,6 +40,9 @@ pub(all) struct Box {
   y2 : Double
 } derive(ToJson, @json.FromJson)
 pub fn Box::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Box::from_normalized_cxcywh(Double, Double, Double, Double, Int, Int) -> Result[Self, String]
+pub fn Box::from_normalized_xyxy(Double, Double, Double, Double, Int, Int) -> Result[Self, String]
+pub fn Box::from_xywh(Double, Double, Double, Double) -> Result[Self, String]
 pub fn Box::to_json(Self) -> Json
 
 pub(all) struct CategoryMapping {

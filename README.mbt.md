@@ -37,6 +37,8 @@ python validation/package_consumer.py --archive _build/publish/python123-ops-moo
 
 `restore(tile, detection, image_width, image_height)` 验证切片和局部框并平移到原图。窗口边界采用半开区间；框使用连续 `xyxy`，面积为 `(x2-x1)*(y2-y1)`，不做 `+1`。局部框必须完全位于切片内，允许坐标位于切片边缘，不自动裁剪；退化、非有限、面积数值下溢以及平移后因浮点舍入失去正面积的框会被拒绝。检测分数须在 `[0,1]`，标识符和类别必须非负。
 
+MoonBit 调用方可用 `Box::from_xywh(x, y, width, height)` 转换连续像素框，或用 `Box::from_normalized_xyxy(...)`、`Box::from_normalized_cxcywh(...)` 转换归一化边界框及 YOLO 风格的归一化中心点框。归一化转换需要提供该框所在坐标空间的宽高：若框属于模型输入，应填写模型输入尺寸，再使用 `restore_model`；若框已经属于切片，应填写切片尺寸，再使用 `restore`。归一化后的框须完全落在 `[0,1]` 内，边界按浮点实际值严格判断；非有限、零面积和不可表示的结果会报错，不自动裁剪。像素 `xywh` 允许负起点，后续能否接受由还原和裁剪规则决定。这些是 MoonBit 类型化转换接口；JSON 入口仍接收连续像素 `xyxy`。
+
 模型输出仍处于缩放、填充后的输入坐标时，可使用 `restore_model(tile, detection, image_width, image_height, transform)`。`ModelTransform` 描述实际预处理：`model_x = local_x * scale_x + pad_x`，纵轴同理；缩放必须为有限正数，左侧和顶部填充必须为有限非负数。框必须是模型输入上的绝对连续 `xyxy` 像素坐标，调用方负责提供实际缩放和填充值；已被推理框架还原的框应直接使用 `restore`。`clip=false` 时越出切片的框报错；`clip=true` 时先裁剪到切片，完全落在填充区或裁剪后失去面积的框仍报错。非有限结果、数值溢出和无效输入均被拒绝。
 
 JSON 每个切片可选择性增加 `transform`，各切片可以使用不同参数，也可以和原有切片局部坐标混用，见 [examples/model-input.json](examples/model-input.json)。省略该字段沿用原有行为；即使检测列表为空也会验证变换参数。所有合并、COCO 和 MBMOT 输出共用同一转换流程。

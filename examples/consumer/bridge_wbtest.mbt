@@ -8,7 +8,7 @@ test "merged detection feeds tracking and evaluation" {
     tile_id: 0,
     class_id: 0,
     score: 0.95,
-    box: { x1: 45.0, y1: 10.0, x2: 58.0, y2: 30.0, },
+    box: @moontile.Box::from_xywh(45.0, 10.0, 13.0, 20.0).unwrap(),
   }
   let result = @moontile.process_tiles(
     100,
@@ -29,6 +29,45 @@ test "merged detection feeds tracking and evaluation" {
   )
   let report = @moondeteval.evaluate(dataset, [prediction])
   assert_eq(report.summary().ap50(), 1.0)
+}
+
+///|
+test "normalized center box reaches tracking and evaluation" {
+  let bbox = @moontile.Box::from_normalized_cxcywh(0.5, 0.5, 0.5, 0.5, 100, 60).unwrap()
+  let detection : @moontile.Detection = {
+    id: 9,
+    image_id: 1,
+    tile_id: 0,
+    class_id: 0,
+    score: 0.95,
+    box: bbox,
+  }
+  let tiles : Array[@moontile.TilePredictions] = [
+    {
+      tile: { id: 0, x: 0, y: 0, width: 100, height: 60, },
+      detections: [detection],
+      transform: None,
+    },
+  ]
+  let result = @moontile.process_tiles(100, 60, tiles, {
+    threshold: 0.5,
+    metric: IoU,
+    class_agnostic: false,
+    strategy: Nms,
+  }).unwrap()
+  let tracker = @mbmot.Tracker::new(@mbmot.TrackerConfig::default())
+  assert_eq(
+    tracker.update(1, [to_tracker(result.merged.kept[0])]).tracks().length(),
+    1,
+  )
+  let prediction = to_evaluator(result.merged.kept[0], 7)
+  let truth = @moondeteval.Box::from_xywh(25.0, 15.0, 50.0, 30.0)
+  let dataset = @moondeteval.Dataset::new(
+    [@moondeteval.Image::new(1, 100, 60)],
+    [@moondeteval.Category::new(7, "object")],
+    [@moondeteval.GroundTruth::new(1L, 1, 7, truth, area=1500.0)],
+  )
+  assert_eq(@moondeteval.evaluate(dataset, [prediction]).summary().ap50(), 1.0)
 }
 
 ///|

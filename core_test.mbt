@@ -89,6 +89,72 @@ test "model coordinates invert resize and padding and enforce clipping" {
 }
 
 ///|
+test "box format conversions reject invalid values and feed model restoration" {
+  let xywh = @moontile.Box::from_xywh(4.0, 5.0, 6.0, 7.0).unwrap()
+  assert_eq(xywh.x1, 4.0)
+  assert_eq(xywh.y1, 5.0)
+  assert_eq(xywh.x2, 10.0)
+  assert_eq(xywh.y2, 12.0)
+  assert_true(@moontile.Box::from_xywh(-2.0, 1.0, 3.0, 4.0) is Ok(_))
+  assert_true(@moontile.Box::from_xywh(0.0, 0.0, 0.0, 1.0) is Err(_))
+  assert_true(@moontile.Box::from_xywh(0.0, 0.0, 1.0 / 0.0, 1.0) is Err(_))
+  assert_true(@moontile.Box::from_xywh(1.0e308, 0.0, 1.0e308, 1.0) is Err(_))
+  assert_true(@moontile.Box::from_xywh(1.0e20, 0.0, 1.0, 1.0) is Err(_))
+  let normalized = @moontile.Box::from_normalized_xyxy(
+    0.25, 0.25, 0.5, 0.75, 160, 160,
+  ).unwrap()
+  let centered = @moontile.Box::from_normalized_cxcywh(
+    0.375, 0.5, 0.25, 0.5, 160, 160,
+  ).unwrap()
+  assert_eq(centered.x1, normalized.x1)
+  assert_eq(centered.y1, normalized.y1)
+  assert_eq(centered.x2, normalized.x2)
+  assert_eq(centered.y2, normalized.y2)
+  let tile : @moontile.Tile = { id: 1, x: 40, y: 0, width: 60, height: 60, }
+  let sample : @moontile.Detection = {
+    ..detection(1, 1, 0, 0.9, 1.0, 1.0, 2.0, 2.0),
+    box: centered,
+  }
+  let transform : @moontile.ModelTransform = {
+    scale_x: 2.0,
+    scale_y: 2.0,
+    pad_x: 0.0,
+    pad_y: 0.0,
+    clip: false,
+  }
+  let restored = @moontile.restore_model(tile, sample, 100, 60, transform).unwrap()
+  assert_eq(restored.box.x1, 60.0)
+  assert_eq(restored.box.y1, 20.0)
+  assert_eq(restored.box.x2, 80.0)
+  assert_eq(restored.box.y2, 60.0)
+  assert_true(
+    @moontile.Box::from_normalized_xyxy(-0.1, 0.0, 0.5, 1.0, 100, 100) is Err(_),
+  )
+  assert_true(
+    @moontile.Box::from_normalized_xyxy(0.0, 0.0, 1.1, 1.0, 100, 100) is Err(_),
+  )
+  assert_true(
+    @moontile.Box::from_normalized_xyxy(0.0, 0.0, 1.0, 1.0, 0, 100) is Err(_),
+  )
+  assert_true(
+    @moontile.Box::from_normalized_xyxy(0.0, 0.0, 0.0 / 0.0, 1.0, 100, 100)
+    is Err(_),
+  )
+  assert_true(
+    @moontile.Box::from_normalized_cxcywh(0.1, 0.5, 0.5, 0.5, 100, 100)
+    is Err(_),
+  )
+  assert_true(
+    @moontile.Box::from_normalized_cxcywh(0.5, 0.5, 0.0, 0.5, 100, 100)
+    is Err(_),
+  )
+  assert_true(
+    @moontile.Box::from_normalized_cxcywh(0.5, 0.5, 1.0 / 0.0, 0.5, 100, 100)
+    is Err(_),
+  )
+}
+
+///|
 test "tile coverage and edge anchoring" {
   let tiles = @moontile.plan_tiles(100, 70, 60, 40, 20, 10).unwrap()
   assert_eq(tiles.length(), 4)
