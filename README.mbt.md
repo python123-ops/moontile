@@ -45,7 +45,7 @@ python validation/package_consumer.py --archive _build/publish/python123-ops-moo
 
 检测器输出的局部像素框可能越过切片边缘。需要裁剪时，MoonBit 调用方可显式使用 `restore_clipped(tile, detection, image_width, image_height)`；它先将连续框与切片相交，再还原至原图，保留检测来源。原始框必须有限且具有正面积；完全位于切片外、仅接触边缘、裁剪后退化或身份无效仍会报错。`restore` 保持严格拒绝越界框的行为。
 
-JSON 中可在切片组设置 `"clip_local": true`，用于 `xyxy` 或 `xywh` 局部像素框，示例见 [examples/clipped-input.json](examples/clipped-input.json)。省略、设为 `false` 或 `null` 时不改变原来的行为；`true` 不能与该组 `transform` 同时使用，归一化格式也不能设置为 `true`。模型输入框需要按原有 `transform.clip` 处理。空切片也会检查选项；一组内有无效框时整个处理返回错误。CLI、浏览器、COCO 导出和视频流共用该规则。
+JSON 中可在切片组设置 `"clip_local": true`，用于 `xyxy` 或 `xywh` 局部像素框，示例见 [examples/clipped-input.json](examples/clipped-input.json)。省略或设为 `false` 时不改变原来的行为，`null` 和非布尔值会报错；`true` 不能与该组 `transform` 同时使用，归一化格式也不能设置为 `true`。模型输入框需要按原有 `transform.clip` 处理。空切片也会检查选项；一组内有无效框时整个处理返回错误。CLI、浏览器、COCO 导出和视频流共用该规则。
 MoonBit 调用方可用 `Box::from_xywh(x, y, width, height)` 转换连续像素框，或用 `Box::from_normalized_xyxy(...)`、`Box::from_normalized_cxcywh(...)` 转换归一化边界框及 YOLO 风格的归一化中心点框。归一化转换需要提供该框所在坐标空间的宽高：若框属于模型输入，应填写模型输入尺寸，再使用 `restore_model`；若框已经属于切片，应填写切片尺寸，再使用 `restore`。归一化后的框须完全落在 `[0,1]` 内，边界按浮点实际值严格判断；非有限、零面积和不可表示的结果会报错，不自动裁剪。像素 `xywh` 允许负起点，后续能否接受由还原和裁剪规则决定。
 
 模型输出仍处于缩放、填充后的输入坐标时，可使用 `restore_model(tile, detection, image_width, image_height, transform)`。`ModelTransform` 描述实际预处理：`model_x = local_x * scale_x + pad_x`，纵轴同理；缩放必须为有限正数，左侧和顶部填充必须为有限非负数。框必须是模型输入上的绝对连续 `xyxy` 像素坐标，调用方负责提供实际缩放和填充值；已被推理框架还原的框应直接使用 `restore`。`clip=false` 时越出切片的框报错；`clip=true` 时先裁剪到切片，完全落在填充区或裁剪后失去面积的框仍报错。非有限结果、数值溢出和无效输入均被拒绝。
@@ -170,6 +170,8 @@ python validation/scale/quality.py --infer --images <image-cache> --weights <yol
 ```
 
 CI 使用 Python 标准库回放全部 200 张图的原始切片预测，检查坐标和 NMS 结果数量；八组指标和外部参考评估需要上述完整 Python 环境。
+
+另取上述真实预测中贴住切片边缘的 665 个框，将贴边坐标人为向切片外延伸 1 像素，覆盖 160 张图的 459 个切片；启用 `clip_local` 后，全部还原框、合并框和抑制记录与原始预测一致。这是基于真实预测构造的边界扰动，不是检测器直接输出的越界框。[扰动验证结果](validation/scale/clipping-boundary-results.json)记录各边界数量与输入哈希；CI 同样运行该回放。
 `validation/real_tiled_video.py` 补充真实切片视频链路：读取 OpenCV 的 [vtest.avi](https://github.com/opencv/opencv/blob/4.x/samples/data/vtest.avi) 前 20 帧（768×576、10 FPS），每帧切成 6 个 384×384 窗口，重叠 128 像素，在每个窗口运行 OpenCV HOG 行人检测。MoonTile 对 143 个局部预测执行坐标还原和 IoU 0.4 的 NMS，保留 54 个，再逐帧送入 MBMOT；跟踪输出包含 20 帧，5 个轨迹 ID 在多帧出现。HOG 的分数是 SVM margin 的 sigmoid 变换，并非经过校准的概率；视频没有跟踪标注，轨迹数量和 ID 延续不能说明跟踪准确率，被抑制数量也不等同于人工确认的重复框数量。
 
 [完整结果](validation/real-tiled-video-results.json)记录视频、二进制和输出哈希、参数及项目版本；[切片预测](validation/real-tiled-video-predictions.json)、[MBMOT 输入](validation/real-tiled-video-detections.json)和[跟踪输出](validation/real-tiled-video-tracks.json)可直接审阅。仓库不包含原视频，OpenCV 仓库的许可见其 [LICENSE](https://github.com/opencv/opencv/blob/4.x/LICENSE)。完整推理使用 `opencv-python==4.13.0.92`，需要视频及两个项目的原生可执行文件：
@@ -179,6 +181,11 @@ python validation/real_tiled_video.py infer --video <vtest.avi> --moontile <moon
 ```
 
 不重新执行图像检测时，可用 `python validation/real_tiled_video.py replay --moontile <moontile-cli> --mbmot <mbmot-replay-cli>` 回放真实预测，验证还原坐标、检测顺序及跟踪结果；不提供 `--mbmot` 时只验证 MoonTile 部分。CI 固定 MBMOT 提交并运行完整回放。
+真实视频切片链路进一步扩展到同一视频前 150 帧、900 个切片：HOG 输出 955 个有效预测，MoonTile 保留 468 个并送入 MBMOT，得到 150 帧跟踪结果。19 个轨迹 ID 中有 18 个出现在多帧；该视频没有跟踪标注，这不构成身份正确率评估。原始预测、跟踪结果、来源及可执行文件哈希见 [validation/video-scale](validation/video-scale)；CI 使用固定版本的 MBMOT 回放全部 150 帧。
+
+```sh
+python validation/real_tiled_video.py infer --video <vtest.avi> --moontile <moontile-cli> --mbmot <mbmot-replay-cli> --moontile-revision adbe9bd --mbmot-revision 1021f4e7c24a8c865e114d97111ffd969f6b515f --frames 150 --raw validation/video-scale/predictions.json --output-frames validation/video-scale/detections.json --tracks validation/video-scale/tracks.json --report validation/video-scale/results.json
+```
 ## 边界与参考
 
 只处理二维轴对齐框；不包含掩码合并、旋转框、模型推理或视频解码。后处理参考 [SAHI](https://github.com/obss/sahi) 的公开问题定义；已验证范围和已知差异见上文。本项目为独立实现，Apache-2.0 许可。已有 [moonbit-visual-debug](https://mooncakes.io/docs/xlh123jjj/moonbit-visual-debug) 和 [moonbit-robot-vision-formats](https://mooncakes.io/docs/ppyj663/moonbit-robot-vision-formats) 主要提供视觉调试、格式交换和机器人视觉数据处理；发布前仍需复查 Mooncakes 名称和同类包。

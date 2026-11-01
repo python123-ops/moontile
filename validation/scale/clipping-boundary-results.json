@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "images": 200,
+  "affected_images": 160,
+  "affected_tiles": 459,
+  "affected_boxes": 665,
+  "edges": {
+    "left": 190,
+    "top": 214,
+    "right": 175,
+    "bottom": 120
+  },
+  "input_predictions": 11657,
+  "kept": 6869,
+  "suppressed": 4788,
+  "fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "binary_sha256": "4086ea9ceb7eb73b3f85613346102b4b78ff7df7017975011f28d92d25440354",
+  "command": "python validation/replay_tiled_coco.py --binary <moontile-cli> --raw validation/scale/predictions.json --report validation/scale/results.json --clip-boundary --boundary-output validation/scale/clipping-boundary-results.json",
+  "scope": "Real predictions touching tile edges were artificially expanded one pixel for a boundary test; these are not raw detector out-of-bounds predictions."
+}

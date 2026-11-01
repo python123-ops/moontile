@@ -153,7 +153,7 @@ def infer(args):
         raise AssertionError('sample contains no detections or repeated track IDs')
     write_json(args.raw, {'frames_bgr_sha256': frame_hashes, 'requests': requests})
     write_json(args.output_frames, output); write_json(args.tracks, tracks)
-    report = {'status': 'passed', 'command': f'python validation/real_tiled_video.py infer --video <vtest.avi> --moontile <moontile-cli> --mbmot <mbmot-replay-cli> --moontile-revision <commit> --mbmot-revision <commit> --frames {args.frames}',
+    report = {'status': 'passed', 'command': f'python validation/real_tiled_video.py infer --video <vtest.avi> --moontile <moontile-cli> --mbmot <mbmot-replay-cli> --moontile-revision <commit> --mbmot-revision <commit> --frames {args.frames} --raw <predictions.json> --output-frames <detections.json> --tracks <tracks.json> --report <results.json>',
               'source_url': 'https://github.com/opencv/opencv/blob/4.x/samples/data/vtest.avi',
               'opencv_license': 'https://github.com/opencv/opencv/blob/4.x/LICENSE',
               'video_sha256': digest(args.video), 'opencv_version': cv2.__version__,

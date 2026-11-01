@@ -1,0 +1,58 @@
+{
+  "status": "passed",
+  "command": "python validation/real_tiled_video.py infer --video <vtest.avi> --moontile <moontile-cli> --mbmot <mbmot-replay-cli> --moontile-revision <commit> --mbmot-revision <commit> --frames 150 --raw <predictions.json> --output-frames <detections.json> --tracks <tracks.json> --report <results.json>",
+  "source_url": "https://github.com/opencv/opencv/blob/4.x/samples/data/vtest.avi",
+  "opencv_license": "https://github.com/opencv/opencv/blob/4.x/LICENSE",
+  "video_sha256": "45cddc9490be69345cbdab64ca583be65987e864ca408038e648db99e10516cf",
+  "opencv_version": "4.13.0",
+  "dimensions": [
+    768,
+    576
+  ],
+  "fps": 10.0,
+  "frames": 150,
+  "tiles_per_frame": 6,
+  "detector": {
+    "name": "OpenCV HOG default people detector",
+    "score": "sigmoid of raw SVM margin, not calibrated",
+    "confidence": 0.55,
+    "win_stride": [
+      8,
+      8
+    ],
+    "padding": [
+      8,
+      8
+    ],
+    "scale": 1.05
+  },
+  "tile": {
+    "width": 384,
+    "height": 384,
+    "overlap_x": 128,
+    "overlap_y": 128
+  },
+  "merge": {
+    "strategy": "nms",
+    "metric": "iou",
+    "threshold": 0.4,
+    "class_agnostic": false
+  },
+  "counts": {
+    "restored": 955,
+    "kept": 468,
+    "suppressed": 487
+  },
+  "unique_track_ids": 19,
+  "track_ids_in_multiple_frames": 18,
+  "moontile_revision": "adbe9bdb77811fe9a74cb38dac4da7fd45acc597",
+  "mbmot_revision": "1021f4e7c24a8c865e114d97111ffd969f6b515f",
+  "hashes": {
+    "moontile": "4086ea9ceb7eb73b3f85613346102b4b78ff7df7017975011f28d92d25440354",
+    "mbmot": "b6c1849a01e8cb6a57d504a9bc08c6b0be6462b8d4d8e910ebe7f29ed1492225",
+    "raw": "44da38439f3038a878ac6e7189dfb70a12bacd271da80281af682bdc372a5f62",
+    "detections": "67c38687387da13003aee2d95620a4ced99002488cdcfe69c53b3efa6f1a7e2f",
+    "tracks": "b3a55658906f4de50edbdf37a598f9cc752b670014d66634b917720208b7971e"
+  },
+  "scope": "Real sliced video frames; no tracking ground truth or accuracy assessment; repeated IDs do not prove correct identity."
+}

@@ -112,6 +112,12 @@ test "JSON clip_local supports pixel boxes and downstream exports" {
     )
     is Err(_),
   )
+  assert_true(
+    @moontile.process_json(
+      clipped.replace(old="\"clip_local\":true", new="\"clip_local\":null"),
+    )
+    is Err(_),
+  )
   let outside = clipped.replace(old="\"x2\":70", new="\"x2\":0")
   assert_true(@moontile.process_json(outside) is Err(_))
   let transform =
