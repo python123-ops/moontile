@@ -335,6 +335,79 @@ test "JSON identities and dimensions reject fractional values" {
 }
 
 ///|
+test "JSON box formats validate coordinate spaces before processing" {
+  let source =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":100,"height":60},"box_format":"normalized_cxcywh","coordinate_width":100,"coordinate_height":60,"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.9,"box":{"cx":0.5,"cy":0.5,"width":0.5,"height":0.5}}]}]}
+  let expected =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":100,"height":60},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.9,"box":{"x1":25,"y1":15,"x2":75,"y2":45}}]}]}
+  assert_eq(
+    @moontile.process_json(source).unwrap(),
+    @moontile.process_json(expected).unwrap(),
+  )
+  let xyxy = source
+    .replace(old="normalized_cxcywh", new="normalized_xyxy")
+    .replace(
+      old="\"cx\":0.5,\"cy\":0.5,\"width\":0.5,\"height\":0.5",
+      new="\"x1\":0.25,\"y1\":0.25,\"x2\":0.75,\"y2\":0.75",
+    )
+  assert_eq(
+    @moontile.process_json(xyxy).unwrap(),
+    @moontile.process_json(expected).unwrap(),
+  )
+  let xywh = source
+    .replace(old="normalized_cxcywh", new="xywh")
+    .replace(
+      old="\"cx\":0.5,\"cy\":0.5,\"width\":0.5,\"height\":0.5",
+      new="\"x\":25,\"y\":15,\"width\":50,\"height\":30",
+    )
+  assert_eq(
+    @moontile.process_json(xywh).unwrap(),
+    @moontile.process_json(expected).unwrap(),
+  )
+  assert_true(
+    @moontile.process_json(
+      source.replace(old="\"coordinate_width\":100,", new=""),
+    )
+    is Err(_),
+  )
+  assert_true(
+    @moontile.process_json(
+      source.replace(
+        old="\"coordinate_width\":100",
+        new="\"coordinate_width\":100.5",
+      ),
+    )
+    is Err(_),
+  )
+  assert_true(
+    @moontile.process_json(
+      source.replace(
+        old="\"coordinate_width\":100",
+        new="\"coordinate_width\":101",
+      ),
+    )
+    is Err(_),
+  )
+  assert_true(
+    @moontile.process_json(
+      source.replace(old="normalized_cxcywh", new="unknown"),
+    )
+    is Err(_),
+  )
+  assert_true(
+    @moontile.process_json(source.replace(old="\"cx\":0.5", new="\"cx\":0.0"))
+    is Err(_),
+  )
+  assert_true(
+    @moontile.process_json(source.replace(old="normalized_cxcywh", new="xywh"))
+    is Err(_),
+  )
+  let empty =
+    #|{"image_width":1,"image_height":1,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":1,"height":1},"box_format":"normalized_xyxy","detections":[]}]}
+  assert_true(@moontile.process_json(empty) is Err(_))
+}
+
+///|
 test "restore and reject invalid inputs" {
   let tile : @moontile.Tile = { id: 2, x: 40, y: 30, width: 60, height: 40, }
   let sample = detection(4, 2, 0, 0.8, 10.0, 5.0, 20.0, 12.0)

@@ -63,12 +63,17 @@ assert.equal(mergedTracking.status, 0, mergedTracking.stderr);
 assert.deepEqual(JSON.parse(mergedTracking.stdout), {frame:1,detections:[{xyxy:[45,10,70,30],score:0.95,class_id:0}]});
 const transformedSource = readFileSync(new URL('../examples/model-input.json', import.meta.url), 'utf8');
 assert.deepEqual(JSON.parse(moontile_process(transformedSource)), mergedReport);
+const formatsSource = readFileSync(new URL('../examples/formats-input.json', import.meta.url), 'utf8');
+assert.deepEqual(JSON.parse(moontile_process(formatsSource)), mergedReport);
 for (const extra of [[], ['--coco-map', 'examples/coco-map.json'], ['--mbmot-frame', '1']]) {
   const transformed = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/model-input.json', ...extra], {encoding:'utf8'});
   const original = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/partial-input.json', ...extra], {encoding:'utf8'});
   assert.equal(transformed.status, 0, transformed.stderr);
   assert.equal(original.status, 0, original.stderr);
   assert.deepEqual(JSON.parse(transformed.stdout), JSON.parse(original.stdout));
+  const formats = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/formats-input.json', ...extra], {encoding:'utf8'});
+  assert.equal(formats.status, 0, formats.stderr);
+  assert.deepEqual(JSON.parse(formats.stdout), JSON.parse(original.stdout));
 }
 for (const frame of [1, 2]) {
   const tracking = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/input.json','--mbmot-frame',String(frame)], {encoding:'utf8'});

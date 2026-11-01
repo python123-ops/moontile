@@ -40,6 +40,18 @@ fn pipeline_integers_match(json : Json, input : PipelineInput) -> Bool {
   }
   for i = 0; i < groups.length(); i = i + 1 {
     let group = input.tiles[i]
+    for
+      (name, value) in [
+        ("coordinate_width", group.coordinate_width),
+        ("coordinate_height", group.coordinate_height),
+      ] {
+      match (json_field(groups[i], name), value) {
+        (None | Some(Null), None) => ()
+        (Some(Number(number, ..)), Some(integer)) if number ==
+          integer.to_double() => ()
+        _ => return false
+      }
+    }
     let tile = group.tile
     let tile_json = match json_field(groups[i], "tile") {
       Some(value) => value

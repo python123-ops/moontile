@@ -71,6 +71,11 @@ const transformedStream = spawnSync(moon, ['run','cmd/main','--target','native',
   {encoding:'utf8', input:JSON.stringify({frame:1,input:transformed}) + '\n'});
 assert.equal(transformedStream.status, 0, transformedStream.stderr);
 assert.deepEqual(JSON.parse(transformedStream.stdout), JSON.parse(streamMerged.stdout));
+const formats = JSON.parse(readFileSync(new URL('../examples/formats-input.json', import.meta.url), 'utf8'));
+const formatsStream = spawnSync(moon, ['run','cmd/main','--target','native','--','--mbmot-stream'],
+  {encoding:'utf8', input:JSON.stringify({frame:1,input:formats}) + '\n'});
+assert.equal(formatsStream.status, 0, formatsStream.stderr);
+assert.deepEqual(JSON.parse(formatsStream.stdout), JSON.parse(streamMerged.stdout));
 partial.strategy = 'unknown';
 const unsupported = spawnSync(moon, ['run','cmd/main','--target','native','--','--mbmot-stream'],
   {encoding:'utf8', input:JSON.stringify({frame:1,input:partial}) + '\n'});

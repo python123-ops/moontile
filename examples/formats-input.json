@@ -1,0 +1,27 @@
+{
+  "image_width": 100,
+  "image_height": 60,
+  "threshold": 0.5,
+  "metric": "ios",
+  "class_agnostic": false,
+  "strategy": "greedy_nmm",
+  "tiles": [
+    {
+      "tile": {"id":0,"x":0,"y":0,"width":60,"height":60},
+      "box_format": "normalized_cxcywh",
+      "coordinate_width": 160,
+      "coordinate_height": 160,
+      "transform": {"scale_x":2,"scale_y":2,"pad_x":0,"pad_y":0,"clip":false},
+      "detections": [
+        {"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.95,"box":{"cx":0.65625,"cy":0.25,"width":0.1875,"height":0.25}}
+      ]
+    },
+    {
+      "tile": {"id":1,"x":40,"y":0,"width":60,"height":60},
+      "box_format": "xywh",
+      "detections": [
+        {"id":2,"image_id":1,"tile_id":1,"class_id":0,"score":0.85,"box":{"x":10,"y":10,"width":20,"height":20}}
+      ]
+    }
+  ]
+}

@@ -62,6 +62,15 @@ pub(all) struct Detection {
 pub fn Detection::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Detection::to_json(Self) -> Json
 
+type DetectionInput derive(@json.FromJson)
+pub fn DetectionInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+
+type InputCenterBox derive(@json.FromJson)
+pub fn InputCenterBox::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+
+type InputXywh derive(@json.FromJson)
+pub fn InputXywh::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+
 pub(all) struct MergeConfig {
   threshold : Double
   metric : Overlap

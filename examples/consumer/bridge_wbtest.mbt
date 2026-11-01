@@ -71,6 +71,28 @@ test "normalized center box reaches tracking and evaluation" {
 }
 
 ///|
+test "normalized JSON prediction reaches both consumers" {
+  let source =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":100,"height":60},"box_format":"normalized_cxcywh","coordinate_width":100,"coordinate_height":60,"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.95,"box":{"cx":0.5,"cy":0.5,"width":0.5,"height":0.5}}]}]}
+  let frame = @replay_codec.parse_frame_line(
+    @moontile.process_mbmot_json(source, 1).unwrap(),
+  )
+  assert_eq(frame.detections().length(), 1)
+  assert_eq(frame.detections()[0].bbox().x1(), 25.0)
+  assert_eq(frame.detections()[0].bbox().y2(), 45.0)
+  let predictions = @moondeteval.parse_coco_detections(
+    @moontile.process_coco_json(source, "[{\"class_id\":0,\"category_id\":7}]").unwrap(),
+  )
+  let truth = @moondeteval.Box::from_xywh(25.0, 15.0, 50.0, 30.0)
+  let dataset = @moondeteval.Dataset::new(
+    [@moondeteval.Image::new(1, 100, 60)],
+    [@moondeteval.Category::new(7, "object")],
+    [@moondeteval.GroundTruth::new(1L, 1, 7, truth, area=1500.0)],
+  )
+  assert_eq(@moondeteval.evaluate(dataset, predictions).summary().ap50(), 1.0)
+}
+
+///|
 test "COCO pipeline output is consumable by MoonDetEval" {
   let source =
     #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":100,"height":60},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.95,"box":{"x1":45,"y1":10,"x2":58,"y2":30}}]}]}

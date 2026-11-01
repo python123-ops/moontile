@@ -1,8 +1,11 @@
 ///|
 struct TileInput {
   tile : Tile
-  detections : Array[Detection]
+  detections : Array[DetectionInput]
   transform : ModelTransform?
+  box_format : String?
+  coordinate_width : Int?
+  coordinate_height : Int?
 } derive(FromJson)
 
 ///|
@@ -72,13 +75,13 @@ fn process_data(source : String) -> Result[PipelineResult, String] {
     Some("greedy_nmm") => GreedyNmm
     Some(_) => return Err("strategy must be nms or greedy_nmm")
   }
-  let tiles : Array[TilePredictions] = input.tiles.map(fn(group) {
-    {
-      tile: group.tile,
-      detections: group.detections,
-      transform: group.transform,
+  let tiles : Array[TilePredictions] = []
+  for group in input.tiles {
+    match decode_tile_predictions(group) {
+      Ok(value) => tiles.push(value)
+      Err(message) => return Err(message)
     }
-  })
+  }
   process_tiles(input.image_width, input.image_height, tiles, {
     threshold: input.threshold,
     metric,
@@ -163,7 +166,7 @@ pub fn process_tiles(
 }
 
 ///|
-/// Process one JSON document with local xyxy boxes and return the NMS trace.
+/// Process one JSON document with per-tile box formats and return the trace.
 pub fn process_json(source : String) -> Result[String, String] {
   let processed = match process_data(source) {
     Ok(value) => value
