@@ -151,6 +151,7 @@ pub struct TileAccumulator {
   restored : Array[Detection]
 }
 pub fn TileAccumulator::add_tile(Self, TilePredictions) -> Result[Unit, String]
+pub fn TileAccumulator::add_tiles(Self, Array[TilePredictions]) -> Result[Unit, String]
 pub fn TileAccumulator::detection_count(Self) -> Int
 pub fn TileAccumulator::finish(Self) -> Result[PipelineResult, String]
 pub fn TileAccumulator::new(Int, Int, MergeConfig) -> Result[Self, String]

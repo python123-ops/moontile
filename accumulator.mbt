@@ -54,8 +54,47 @@ pub fn TileAccumulator::add_tile(
   self : TileAccumulator,
   group : TilePredictions,
 ) -> Result[Unit, String] {
+  self.add_tiles([group])
+}
+
+///|
+/// Validate and restore a batch atomically. An empty batch is a no-op.
+/// Input order is preserved. Duplicate IDs within the batch or against prior
+/// additions reject the whole batch without changing the accumulator.
+pub fn TileAccumulator::add_tiles(
+  self : TileAccumulator,
+  groups : Array[TilePredictions],
+) -> Result[Unit, String] {
+  let pending : Array[Detection] = []
+  let pending_ids : Set[Int] = Set([])
+  let pending_tiles : Set[Int] = Set([])
+  for group in groups {
+    match self.stage_tile(group, pending, pending_ids, pending_tiles) {
+      Ok(_) => ()
+      Err(message) => return Err(message)
+    }
+  }
+  for group in groups {
+    self.tile_ids.add(group.tile.id)
+  }
+  for record in pending {
+    self.detection_ids.add(record.id)
+    self.restored.push(record)
+  }
+  Ok(())
+}
+
+///|
+// Stage one tile in temporary storage, without mutating the accumulator.
+fn TileAccumulator::stage_tile(
+  self : TileAccumulator,
+  group : TilePredictions,
+  pending : Array[Detection],
+  pending_ids : Set[Int],
+  pending_tiles : Set[Int],
+) -> Result[Unit, String] {
   let tile = group.tile
-  if self.tile_ids.contains(tile.id) {
+  if self.tile_ids.contains(tile.id) || !pending_tiles.add_and_check(tile.id) {
     return Err("duplicate tile id")
   }
   match group.transform {
@@ -76,8 +115,6 @@ pub fn TileAccumulator::add_tile(
     tile.y > self.image_height - tile.height {
     return Err("invalid tile or image dimensions")
   }
-  let pending : Array[Detection] = []
-  let pending_ids : Set[Int] = Set([])
   for record in group.detections {
     let result = match group.transform {
       Some(transform) =>
@@ -99,11 +136,6 @@ pub fn TileAccumulator::add_tile(
       return Err("duplicate detection id")
     }
     pending.push(restored)
-  }
-  self.tile_ids.add(tile.id)
-  for record in pending {
-    self.detection_ids.add(record.id)
-    self.restored.push(record)
   }
   Ok(())
 }

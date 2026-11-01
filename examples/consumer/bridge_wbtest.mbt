@@ -16,7 +16,12 @@ test "merged detection feeds tracking and evaluation" {
     class_agnostic: false,
     strategy: Nms,
   }).unwrap()
-  accumulator.add_tile({ tile, detections: [d], transform: None, }).unwrap()
+  accumulator
+  .add_tiles([
+    { tile, detections: [d], transform: None, },
+    { tile: { ..tile, id: 1, }, detections: [], transform: None, },
+  ])
+  .unwrap()
   let result = accumulator.finish().unwrap()
   let track_input = to_tracker(result.merged.kept[0])
   let tracker = @mbmot.Tracker::new(@mbmot.TrackerConfig::default())
