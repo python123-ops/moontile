@@ -44,8 +44,10 @@
 <section aria-labelledby="merge-title">
   <h2 id="merge-title">2. 还原与合并</h2>
   <p>编辑检测输入后运行合并。蓝色虚线为切片，橙色为还原框，红色为被抑制或合并的框，绿色为最终输出框。</p>
+  <label for="input-file">导入切片预测 JSON（可选）</label><input id="input-file" type="file" accept="application/json,.json">
+  <p id="file-status" role="status" aria-live="polite"></p>
   <label for="input">切片预测 JSON</label><textarea id="input" spellcheck="false"></textarea>
-  <div class="actions"><button id="run" type="button">运行合并</button></div>
+  <div class="actions"><button id="run" type="button">运行合并</button><button id="save-input" type="button">下载输入 JSON</button><button id="save-result" type="button" disabled>下载结果 JSON</button></div>
   <p id="merge-status" role="status" aria-live="polite"></p><svg id="canvas" role="img" aria-label="切片与检测框"></svg><pre id="report" aria-live="polite"></pre>
 </section>
 <script type="module" src="./app.mjs"></script>
