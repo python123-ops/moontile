@@ -30,5 +30,19 @@ jobs:
           if [ ! -x "$binary" ]; then binary=_build/native/debug/build/cmd/main/main; fi
           python validation/sahi_layout.py --sahi-dir _build/sahi-reference --binary "$binary" --output "$RUNNER_TEMP/sahi-layout-results.json"
           python validation/replay_tiled_coco.py --binary "$binary"
+      - uses: actions/checkout@v4
+        with:
+          repository: python123-ops/mbmot
+          ref: 1021f4e7c24a8c865e114d97111ffd969f6b515f
+          path: _build/mbmot-reference
+          persist-credentials: false
+      - run: |
+          moon -C _build/mbmot-reference update
+          moon -C _build/mbmot-reference build src/replay --target native
+          binary=_build/native/debug/build/cmd/main/main.exe
+          if [ ! -x "$binary" ]; then binary=_build/native/debug/build/cmd/main/main; fi
+          tracker=_build/mbmot-reference/_build/native/debug/build/replay/replay.exe
+          if [ ! -x "$tracker" ]; then tracker=_build/mbmot-reference/_build/native/debug/build/replay/replay; fi
+          python validation/real_tiled_video.py replay --moontile "$binary" --mbmot "$tracker"
       - run: moon package
       - run: python validation/package_consumer.py --archive _build/publish/python123-ops-moontile-0.1.0.zip

@@ -153,6 +153,15 @@ python validation/real_tiled_coco.py --ground-truth validation/real-tiled-coco-g
 
 `validation/real_video.py` 重放 MBMOT 现有演示的 OpenCV HOG 检测流，将每帧整图作为一个窗口，经单个 MoonTile 流处理进程转成 MBMOT 输入，再与直接输入原始检测流的跟踪结果逐帧比较。已验证 90 帧、291 个检测，跟踪输出全部一致；其中 80 帧的输入检测并非按分数降序排列。来源、二进制哈希和命令见 `validation/real-video-results.json`。本验证没有使用真实切片推理，也不衡量跟踪精度。
 
+`validation/real_tiled_video.py` 补充真实切片视频链路：读取 OpenCV 的 [vtest.avi](https://github.com/opencv/opencv/blob/4.x/samples/data/vtest.avi) 前 20 帧（768×576、10 FPS），每帧切成 6 个 384×384 窗口，重叠 128 像素，在每个窗口运行 OpenCV HOG 行人检测。MoonTile 对 143 个局部预测执行坐标还原和 IoU 0.4 的 NMS，保留 54 个，再逐帧送入 MBMOT；跟踪输出包含 20 帧，5 个轨迹 ID 在多帧出现。HOG 的分数是 SVM margin 的 sigmoid 变换，并非经过校准的概率；视频没有跟踪标注，轨迹数量和 ID 延续不能说明跟踪准确率，被抑制数量也不等同于人工确认的重复框数量。
+
+[完整结果](validation/real-tiled-video-results.json)记录视频、二进制和输出哈希、参数及项目版本；[切片预测](validation/real-tiled-video-predictions.json)、[MBMOT 输入](validation/real-tiled-video-detections.json)和[跟踪输出](validation/real-tiled-video-tracks.json)可直接审阅。仓库不包含原视频，OpenCV 仓库的许可见其 [LICENSE](https://github.com/opencv/opencv/blob/4.x/LICENSE)。完整推理使用 `opencv-python==4.13.0.92`，需要视频及两个项目的原生可执行文件：
+
+```sh
+python validation/real_tiled_video.py infer --video <vtest.avi> --moontile <moontile-cli> --mbmot <mbmot-replay-cli> --moontile-revision 418f2582969c7b94075a9b09cdea7ceb28993888 --mbmot-revision 1021f4e7c24a8c865e114d97111ffd969f6b515f --frames 20
+```
+
+不重新执行图像检测时，可用 `python validation/real_tiled_video.py replay --moontile <moontile-cli> --mbmot <mbmot-replay-cli>` 回放真实预测，验证还原坐标、检测顺序及跟踪结果；不提供 `--mbmot` 时只验证 MoonTile 部分。CI 固定 MBMOT 提交并运行完整回放。
 ## 边界与参考
 
 只处理二维轴对齐框；不包含掩码合并、旋转框、模型推理或视频解码。后处理参考 [SAHI](https://github.com/obss/sahi) 的公开问题定义；已验证范围和已知差异见上文。本项目为独立实现，Apache-2.0 许可。已有 [moonbit-visual-debug](https://mooncakes.io/docs/xlh123jjj/moonbit-visual-debug) 和 [moonbit-robot-vision-formats](https://mooncakes.io/docs/ppyj663/moonbit-robot-vision-formats) 主要提供视觉调试、格式交换和机器人视觉数据处理；发布前仍需复查 Mooncakes 名称和同类包。

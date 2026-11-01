@@ -1,0 +1,58 @@
+{
+  "status": "passed",
+  "command": "python validation/real_tiled_video.py infer --video <vtest.avi> --moontile <moontile-cli> --mbmot <mbmot-replay-cli> --moontile-revision <commit> --mbmot-revision <commit> --frames 20",
+  "source_url": "https://github.com/opencv/opencv/blob/4.x/samples/data/vtest.avi",
+  "opencv_license": "https://github.com/opencv/opencv/blob/4.x/LICENSE",
+  "video_sha256": "45cddc9490be69345cbdab64ca583be65987e864ca408038e648db99e10516cf",
+  "opencv_version": "4.13.0",
+  "dimensions": [
+    768,
+    576
+  ],
+  "fps": 10.0,
+  "frames": 20,
+  "tiles_per_frame": 6,
+  "detector": {
+    "name": "OpenCV HOG default people detector",
+    "score": "sigmoid of raw SVM margin, not calibrated",
+    "confidence": 0.55,
+    "win_stride": [
+      8,
+      8
+    ],
+    "padding": [
+      8,
+      8
+    ],
+    "scale": 1.05
+  },
+  "tile": {
+    "width": 384,
+    "height": 384,
+    "overlap_x": 128,
+    "overlap_y": 128
+  },
+  "merge": {
+    "strategy": "nms",
+    "metric": "iou",
+    "threshold": 0.4,
+    "class_agnostic": false
+  },
+  "counts": {
+    "restored": 143,
+    "kept": 54,
+    "suppressed": 89
+  },
+  "unique_track_ids": 5,
+  "track_ids_in_multiple_frames": 5,
+  "moontile_revision": "418f2582969c7b94075a9b09cdea7ceb28993888",
+  "mbmot_revision": "1021f4e7c24a8c865e114d97111ffd969f6b515f",
+  "hashes": {
+    "moontile": "f37bfb87605b0ff6d3520a3544db32154a61a298ec6de3c2b7516ecb0c221a91",
+    "mbmot": "c9827eddcd6095b341987e73a44fc1d93aa0dcc298a578f709a6c381aa388277",
+    "raw": "7906e4162602ba9fc01b823c4814d546808326ee89d820ee6eda4d71c5dfe96a",
+    "detections": "2afe7f5424a008784a7cf35aacec6531a4bbe470b48a56064d8b880409ee10dd",
+    "tracks": "1c873cd3da2d74d05c41ed6d483e92cc7b7c4ac52e04a26894ce7ec0c6db54e2"
+  },
+  "scope": "Real sliced video frames; no tracking ground truth or accuracy assessment; repeated IDs do not prove correct identity."
+}
