@@ -43,6 +43,9 @@ pub fn StreamSession::process_line(
   let input : StreamInput = @json.from_json(json) catch {
     _ => return Err("invalid stream fields")
   }
+  if !integer_fields_match(json, [("frame", input.frame)]) {
+    return Err("frame must be an integer")
+  }
   if input.frame <= 0 {
     return Err("frame must be positive")
   }

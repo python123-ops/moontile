@@ -22,6 +22,9 @@ assert.deepEqual(browser, JSON.parse(native.stdout));
 assert.equal(browser.kept.length, 2);
 assert.equal(browser.suppressed[0].suppressed_id, 2);
 assert.ok(JSON.parse(moontile_process('{')).error);
+const fractionalId = JSON.parse(source);
+fractionalId.tiles[0].detections[0].class_id = 0.5;
+assert.match(JSON.parse(moontile_process(JSON.stringify(fractionalId))).error, /IDs must be integers/);
 const coco = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/input.json','--coco-map','examples/coco-map.json'], {encoding:'utf8'});
 assert.equal(coco.status, 0, coco.stderr);
 assert.deepEqual(JSON.parse(coco.stdout), [

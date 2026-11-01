@@ -39,6 +39,20 @@ const invalid = spawnSync(moon, ['run','cmd/main','--target','native','--','--mb
 assert.notEqual(invalid.status, 0);
 assert.equal(invalid.stdout.trim().split(/\r?\n/).length, 1);
 assert.match(invalid.stderr, /line 2: invalid JSON/);
+const fractionalFrame = JSON.parse(lines[1]);
+fractionalFrame.frame = 2.5;
+const fractionalStream = spawnSync(moon, ['run','cmd/main','--target','native','--','--mbmot-stream'],
+  {encoding:'utf8', input:lines[0] + '\n' + JSON.stringify(fractionalFrame) + '\n'});
+assert.notEqual(fractionalStream.status, 0);
+assert.equal(fractionalStream.stdout.trim().split(/\r?\n/).length, 1);
+assert.match(fractionalStream.stderr, /line 2: frame must be an integer/);
+const fractionalTile = JSON.parse(lines[1]);
+fractionalTile.input.tiles[0].tile.x += 0.5;
+const fractionalTileStream = spawnSync(moon, ['run','cmd/main','--target','native','--','--mbmot-stream'],
+  {encoding:'utf8', input:lines[0] + '\n' + JSON.stringify(fractionalTile) + '\n'});
+assert.notEqual(fractionalTileStream.status, 0);
+assert.equal(fractionalTileStream.stdout.trim().split(/\r?\n/).length, 1);
+assert.match(fractionalTileStream.stderr, /line 2: pipeline dimensions and IDs must be integers/);
 const empty = spawnSync(moon, ['run','cmd/main','--target','native','--','--mbmot-stream'],
   {encoding:'utf8', input:''});
 assert.equal(empty.status, 0);

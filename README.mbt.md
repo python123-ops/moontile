@@ -39,6 +39,8 @@ JSON 每个切片可选择性增加 `transform`，各切片可以使用不同参
 
 `process_json` 使用 [examples/input.json](examples/input.json) 所示结构：每组包含窗口和属于该窗口的局部预测，返回 `restored`、`kept` 和 `suppressed`。可选字段 `strategy` 默认是 `"nms"`；设置为 `"greedy_nmm"` 后输出外接框，示例见 [examples/partial-input.json](examples/partial-input.json)。在合并策略下，`suppressed` 的记录表示被归入代表框的成员，`overlap` 相对于原始种子框。相同输入也能使用 COCO 导出、MBMOT 导出和流处理。CLI 用这些 API 执行同一流程；空切片同样会校验。序列处理时可逐帧调用，并自行保证帧号和跟踪器状态。
 
+JSON 处理入口要求图像和切片尺寸、切片位置、检测标识和类别标识为 32 位整数；类别映射 ID 和流帧号也必须为整数。数值上为整数的 `1.0`、`1e0` 等写法可用，解析后的非整数值会报错；数值先按双精度解析，极接近整数或极小的数可能发生舍入。检测框坐标、分数和阈值仍可使用小数。以上检查适用于 MoonTile 的 JSON 入口；如果调用方直接使用 MoonBit 的通用 `FromJson` 解码公开类型，需要自行验证输入。
+
 需要把合并结果交给 MoonDetEval 或其他 COCO bbox 评估器时，CLI 增加 `--coco-map`，输出 COCO 检测结果数组而不是诊断对象。映射文件是 `[{"class_id":0,"category_id":7}]` 形式的 JSON 数组；完整示例见 [examples/coco-map.json](examples/coco-map.json)。每个保留框的类别都必须有映射，重复的 `class_id`、负数 ID、格式错误和缺失映射会使命令报错，标准输出保持为空。多个 class 可以映射到同一个 category；类别映射发生在 NMS 之后，不影响原有的按检测类别去重。输出的 `bbox` 使用连续 `xywh`，顺序与保留结果一致，不裁剪，也不包含 MoonTile 内部检测 ID。
 
 库调用可使用 `export_coco(detections, mappings)` 导出已有的原图坐标检测，或使用 `process_coco_json(source, mapping_source)` 一次完成还原、NMS 和导出。`export_coco` 保留输入顺序并检查重复检测 ID 和无效框，不会再次执行 NMS。

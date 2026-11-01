@@ -122,6 +122,80 @@ test "JSON planning validates fields and returns row-major windows" {
 }
 
 ///|
+test "JSON identities and dimensions reject fractional values" {
+  let source =
+    #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":60,"height":60},"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.9,"box":{"x1":1.5,"y1":2,"x2":5,"y2":6}}]}]}
+  assert_true(@moontile.process_json(source) is Ok(_))
+  let fields = [
+    ("\"image_width\":100", "\"image_width\":100.5"),
+    ("\"image_height\":60", "\"image_height\":60.5"),
+    ("\"id\":0", "\"id\":0.5"),
+    ("\"x\":0", "\"x\":0.5"),
+    ("\"y\":0", "\"y\":0.5"),
+    ("\"width\":60", "\"width\":60.5"),
+    ("\"height\":60", "\"height\":60.5"),
+    ("\"id\":1", "\"id\":1.5"),
+    ("\"image_id\":1", "\"image_id\":1.5"),
+    ("\"tile_id\":0", "\"tile_id\":0.5"),
+    ("\"class_id\":0", "\"class_id\":0.5"),
+  ]
+  for (old, new) in fields {
+    let invalid = source.replace(old~, new~)
+    assert_true(@moontile.process_json(invalid) is Err(_))
+    assert_true(@moontile.process_mbmot_json(invalid, 1) is Err(_))
+    assert_true(
+      @moontile.process_coco_json(
+        invalid, "[{\"class_id\":0,\"category_id\":7}]",
+      )
+      is Err(_),
+    )
+  }
+  let integer_form = source.replace(
+    old="\"image_width\":100",
+    new="\"image_width\":1e2",
+  )
+  assert_true(@moontile.process_json(integer_form) is Ok(_))
+  assert_true(
+    @moontile.process_coco_json(
+      source, "[{\"class_id\":0.5,\"category_id\":7}]",
+    )
+    is Err(_),
+  )
+  assert_true(
+    @moontile.process_coco_json(
+      source, "[{\"class_id\":0,\"category_id\":7.5}]",
+    )
+    is Err(_),
+  )
+  assert_true(
+    @moontile.process_coco_json(
+      source, "[{\"class_id\":0.0,\"category_id\":7.0}]",
+    )
+    is Ok(_),
+  )
+  let session = @moontile.StreamSession::new()
+  assert_true(
+    session.process_line("{\"frame\":1.5,\"input\":" + source + "}") is Err(_),
+  )
+  assert_true(session.last_frame() is None)
+  assert_true(
+    session.process_line("{\"frame\":1,\"input\":" + source + "}") is Ok(_),
+  )
+  assert_true(
+    session.process_line(
+      "{\"frame\":2,\"input\":" +
+      source.replace(old="\"tile_id\":0", new="\"tile_id\":0.5") +
+      "}",
+    )
+    is Err(_),
+  )
+  assert_true(session.last_frame() is Some(1))
+  assert_true(
+    session.process_line("{\"frame\":2.0,\"input\":" + source + "}") is Ok(_),
+  )
+}
+
+///|
 test "restore and reject invalid inputs" {
   let tile : @moontile.Tile = { id: 2, x: 40, y: 30, width: 60, height: 40, }
   let sample = detection(4, 2, 0, 0.8, 10.0, 5.0, 20.0, 12.0)

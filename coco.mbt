@@ -73,6 +73,22 @@ pub fn process_coco_json(
   let mappings : Array[CategoryMapping] = @json.from_json(json) catch {
     _ => return Err("invalid mapping fields")
   }
+  let entries = match json {
+    Array(values) => values
+    _ => return Err("invalid mapping fields")
+  }
+  if entries.length() != mappings.length() {
+    return Err("invalid mapping fields")
+  }
+  for i = 0; i < mappings.length(); i = i + 1 {
+    let entry = mappings[i]
+    if !integer_fields_match(entries[i], [
+        ("class_id", entry.class_id),
+        ("category_id", entry.category_id),
+      ]) {
+      return Err("mapping IDs must be integers")
+    }
+  }
   let processed = match process_data(source) {
     Ok(value) => value
     Err(message) => return Err(message)

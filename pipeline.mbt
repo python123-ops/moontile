@@ -34,6 +34,9 @@ fn process_data(source : String) -> Result[Processed, String] {
   let input : PipelineInput = @json.from_json(json) catch {
     _ => return Err("invalid pipeline fields")
   }
+  if !pipeline_integers_match(json, input) {
+    return Err("pipeline dimensions and IDs must be integers")
+  }
   let metric = match input.metric {
     "iou" => IoU
     "ios" => IoS

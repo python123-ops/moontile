@@ -19,10 +19,6 @@ pub fn plan_json(source : String) -> Result[String, String] {
   let input : PlanInput = @json.from_json(json) catch {
     _ => return Err("invalid planning fields")
   }
-  let fields = match json {
-    Object(value) => value
-    _ => return Err("invalid planning fields")
-  }
   let dimensions = [
     ("image_width", input.image_width),
     ("image_height", input.image_height),
@@ -31,11 +27,8 @@ pub fn plan_json(source : String) -> Result[String, String] {
     ("overlap_x", input.overlap_x),
     ("overlap_y", input.overlap_y),
   ]
-  for (name, value) in dimensions {
-    match fields.get(name) {
-      Some(Number(number, ..)) if number == value.to_double() => ()
-      _ => return Err("planning fields must be integers")
-    }
+  if !integer_fields_match(json, dimensions) {
+    return Err("planning fields must be integers")
   }
   let tiles = match
     plan_tiles(
