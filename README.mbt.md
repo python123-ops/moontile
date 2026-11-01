@@ -153,6 +153,19 @@ python validation/real_tiled_coco.py --ground-truth validation/real-tiled-coco-g
 
 `validation/real_video.py` 重放 MBMOT 现有演示的 OpenCV HOG 检测流，将每帧整图作为一个窗口，经单个 MoonTile 流处理进程转成 MBMOT 输入，再与直接输入原始检测流的跟踪结果逐帧比较。已验证 90 帧、291 个检测，跟踪输出全部一致；其中 80 帧的输入检测并非按分数降序排列。来源、二进制哈希和命令见 `validation/real-video-results.json`。本验证没有使用真实切片推理，也不衡量跟踪精度。
 
+### 扩大真实图片验证
+
+[validation/scale](validation/scale) 将真实切片验证扩大到从 COCO val2017 分层选出的 200 张图片、1,406 个切片，包含 1,652 个标注、73 个标注类别和 11,657 条切片预测。按照互斥面积区间统计，标注中小目标 776 个、中目标 549 个、大目标 327 个；另有 25 条 crowd 标注。这个分层子集不是全量验证集，不能用其结果推断整个数据集上的效果。
+
+[quality.py](validation/scale/quality.py) 对同一批真实预测检查 8 组配置：IoU NMS 阈值 0、0.3、0.5、0.7、1，IoS NMS 和贪心外接框合并（阈值 0.5），以及跨类别 IoU NMS（阈值 0.5）。每组逐图比较独立 Python 贪心实现与 MoonTile 的还原框、保留框和抑制溯源，并用 MoonDetEval 与 pycocotools 对照 12 项 COCO 指标。完整数字和来源哈希见 [quality-results.json](validation/scale/quality-results.json)。例如按类别 IoU NMS 阈值 0.5 时，保留 6,869 条预测，AP 为 0.1915、AP50 为 0.3260；八组的指标参考差异均不超过 1.67e-16。不同配置的指标变化仅描述这批样本，不代表普遍精度提升；被抑制数不等于人工核实的重复框数量。
+
+完整复现沿用前述 YOLO11n 权重和 Python 依赖，使用以下入口；省略 `--infer`、图片与权重参数可直接回放目录中保存的真实预测和标注。两种方式都需要 MoonTile 和 MoonDetEval 原生命令。
+
+```sh
+python validation/scale/quality.py --infer --images <image-cache> --weights <yolo11n.pt> --moontile <moontile-cli> --moontile-revision 020358e83e0c88313ce2cf1694c549b2d24636e1 --moondeteval <moondeteval-cli> --moondeteval-revision c57bf0dde713546e93f5f44233d7d382334d83bd
+```
+
+CI 使用 Python 标准库回放全部 200 张图的原始切片预测，检查坐标和 NMS 结果数量；八组指标和外部参考评估需要上述完整 Python 环境。
 `validation/real_tiled_video.py` 补充真实切片视频链路：读取 OpenCV 的 [vtest.avi](https://github.com/opencv/opencv/blob/4.x/samples/data/vtest.avi) 前 20 帧（768×576、10 FPS），每帧切成 6 个 384×384 窗口，重叠 128 像素，在每个窗口运行 OpenCV HOG 行人检测。MoonTile 对 143 个局部预测执行坐标还原和 IoU 0.4 的 NMS，保留 54 个，再逐帧送入 MBMOT；跟踪输出包含 20 帧，5 个轨迹 ID 在多帧出现。HOG 的分数是 SVM margin 的 sigmoid 变换，并非经过校准的概率；视频没有跟踪标注，轨迹数量和 ID 延续不能说明跟踪准确率，被抑制数量也不等同于人工确认的重复框数量。
 
 [完整结果](validation/real-tiled-video-results.json)记录视频、二进制和输出哈希、参数及项目版本；[切片预测](validation/real-tiled-video-predictions.json)、[MBMOT 输入](validation/real-tiled-video-detections.json)和[跟踪输出](validation/real-tiled-video-tracks.json)可直接审阅。仓库不包含原视频，OpenCV 仓库的许可见其 [LICENSE](https://github.com/opencv/opencv/blob/4.x/LICENSE)。完整推理使用 `opencv-python==4.13.0.92`，需要视频及两个项目的原生可执行文件：

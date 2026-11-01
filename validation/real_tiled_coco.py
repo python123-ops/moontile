@@ -89,7 +89,7 @@ def main():
         mapping_path = tmp / 'mapping.json'
         save(truth_path, subset)
         save(mapping_path, [{'class_id': c['id'], 'category_id': c['id']} for c in categories])
-        for im in images:
+        for image_index, im in enumerate(images, start=1):
             path = args.images / im['file_name']
             image_hashes.append({'id': im['id'], 'file_name': im['file_name'], 'sha256': sha(path)})
             image = cv2.imread(str(path), cv2.IMREAD_COLOR)
@@ -139,6 +139,8 @@ def main():
                 raise AssertionError('COCO export differs from kept detections')
             all_before.extend(coco_predictions(processed['restored']))
             all_after.extend(exported)
+            if image_index % 20 == 0:
+                print(f'processed {image_index}/{len(images)} images', file=sys.stderr, flush=True)
         if not all_before or not all_after:
             raise ValueError('no valid predictions')
         save(pre_path, all_before); save(post_path, all_after)
@@ -149,7 +151,7 @@ def main():
         if max(differences) > 1e-9:
             raise AssertionError('MoonDetEval and pycocotools metrics differ: ' + str(max(differences)))
     save(args.raw, {'images': image_hashes, 'requests': requests})
-    report = {'status': 'passed', 'command': f'python validation/real_tiled_coco.py --ground-truth <ground_truth.json> --provenance <results.json> --images <image-cache> --weights <yolo11n.pt> --moontile <moontile-cli> --moontile-revision <git-sha> --moondeteval <moondeteval-cli> --moondeteval-revision <git-sha> --count {args.count} --raw validation/real-tiled-coco-predictions.json --output validation/real-tiled-coco-results.json', 'seed': 20261002, 'selection': 'first count sorted image ids in saved subset',
+    report = {'status': 'passed', 'command': f'python validation/real_tiled_coco.py --ground-truth <ground_truth.json> --provenance <results.json> --images <image-cache> --weights <yolo11n.pt> --moontile <moontile-cli> --moontile-revision <git-sha> --moondeteval <moondeteval-cli> --moondeteval-revision <git-sha> --count {args.count} --raw <predictions.json> --output <results.json>', 'seed': 20261002, 'selection': 'first count sorted image ids in saved subset',
               'image_ids': sorted(ids), 'images': len(images), 'tiles': sum(len(r['tiles']) for r in requests),
               'predictions_before': len(all_before), 'predictions_after': len(all_after),
               'suppressed': len(all_before) - len(all_after), 'invalid_boxes_filtered': dropped,
@@ -163,7 +165,7 @@ def main():
               'versions': {'python': sys.version.split()[0], **{k: metadata.version(k) for k in ('ultralytics', 'torch', 'torchvision', 'opencv-python', 'pycocotools', 'numpy')}},
               'dataset': 'COCO val2017', 'image_url_template': provenance['image_url_template'],
               'annotation_url': provenance['annotation_url'], 'model_url': provenance['model_url'],
-              'scope': 'Actual crop inference; suppression counts are not verified duplicate counts; 10-image subset is not a general accuracy benchmark.'}
+              'scope': 'Actual crop inference; suppression counts are not verified duplicate counts; subset results do not establish general accuracy.'}
     args.output.write_bytes((json.dumps(report, indent=2) + '\n').encode('utf8'))
     print(json.dumps(report, ensure_ascii=False))
 

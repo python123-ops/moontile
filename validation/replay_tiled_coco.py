@@ -12,10 +12,12 @@ HERE = Path(__file__).resolve().parent
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--binary', required=True, type=Path)
+    p.add_argument('--raw', type=Path, default=HERE / 'real-tiled-coco-predictions.json')
+    p.add_argument('--report', type=Path, default=HERE / 'real-tiled-coco-results.json')
     args = p.parse_args()
-    raw_path = HERE / 'real-tiled-coco-predictions.json'
+    raw_path = args.raw
     raw = json.loads(raw_path.read_text(encoding='utf8'))
-    report = json.loads((HERE / 'real-tiled-coco-results.json').read_text(encoding='utf8'))
+    report = json.loads(args.report.read_text(encoding='utf8'))
     if hashlib.sha256(raw_path.read_bytes()).hexdigest() != report['hashes']['raw']:
         raise AssertionError('fixture hash differs from recorded inference')
     counts = [0, 0, 0]

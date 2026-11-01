@@ -1,2 +1,3 @@
 validation/real-tiled-coco-*.json text eol=lf
 validation/real-tiled-video-*.json text eol=lf
+validation/scale/*.json text eol=lf
