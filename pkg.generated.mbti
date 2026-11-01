@@ -27,6 +27,8 @@ pub fn process_tiles(Int, Int, Array[TilePredictions], MergeConfig) -> Result[Pi
 
 pub fn restore(Tile, Detection, Int, Int) -> Result[Detection, String]
 
+pub fn restore_clipped(Tile, Detection, Int, Int) -> Result[Detection, String]
+
 pub fn restore_model(Tile, Detection, Int, Int, ModelTransform) -> Result[Detection, String]
 
 pub fn suppress(Array[Detection], Double, Overlap, class_agnostic? : Bool) -> Result[MergeResult, String]

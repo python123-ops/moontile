@@ -12,6 +12,7 @@ node examples/plan-consumer.mjs
 moon run cmd/main --target native -- examples/partial-input.json
 moon run cmd/main --target native -- examples/model-input.json
 moon run cmd/main --target native -- examples/formats-input.json
+moon run cmd/main --target native -- examples/clipped-input.json
 moon run cmd/main --target native -- examples/input.json --coco-map examples/coco-map.json
 moon run cmd/main --target native -- examples/input.json --mbmot-frame 1
 moon -C examples/consumer test --target all --deny-warn
@@ -42,6 +43,9 @@ python validation/package_consumer.py --archive _build/publish/python123-ops-moo
 
 `restore(tile, detection, image_width, image_height)` 验证切片和局部框并平移到原图。窗口边界采用半开区间；框使用连续 `xyxy`，面积为 `(x2-x1)*(y2-y1)`，不做 `+1`。局部框必须完全位于切片内，允许坐标位于切片边缘，不自动裁剪；退化、非有限、面积数值下溢以及平移后因浮点舍入失去正面积的框会被拒绝。检测分数须在 `[0,1]`，标识符和类别必须非负。
 
+检测器输出的局部像素框可能越过切片边缘。需要裁剪时，MoonBit 调用方可显式使用 `restore_clipped(tile, detection, image_width, image_height)`；它先将连续框与切片相交，再还原至原图，保留检测来源。原始框必须有限且具有正面积；完全位于切片外、仅接触边缘、裁剪后退化或身份无效仍会报错。`restore` 保持严格拒绝越界框的行为。
+
+JSON 中可在切片组设置 `"clip_local": true`，用于 `xyxy` 或 `xywh` 局部像素框，示例见 [examples/clipped-input.json](examples/clipped-input.json)。省略、设为 `false` 或 `null` 时不改变原来的行为；`true` 不能与该组 `transform` 同时使用，归一化格式也不能设置为 `true`。模型输入框需要按原有 `transform.clip` 处理。空切片也会检查选项；一组内有无效框时整个处理返回错误。CLI、浏览器、COCO 导出和视频流共用该规则。
 MoonBit 调用方可用 `Box::from_xywh(x, y, width, height)` 转换连续像素框，或用 `Box::from_normalized_xyxy(...)`、`Box::from_normalized_cxcywh(...)` 转换归一化边界框及 YOLO 风格的归一化中心点框。归一化转换需要提供该框所在坐标空间的宽高：若框属于模型输入，应填写模型输入尺寸，再使用 `restore_model`；若框已经属于切片，应填写切片尺寸，再使用 `restore`。归一化后的框须完全落在 `[0,1]` 内，边界按浮点实际值严格判断；非有限、零面积和不可表示的结果会报错，不自动裁剪。像素 `xywh` 允许负起点，后续能否接受由还原和裁剪规则决定。
 
 模型输出仍处于缩放、填充后的输入坐标时，可使用 `restore_model(tile, detection, image_width, image_height, transform)`。`ModelTransform` 描述实际预处理：`model_x = local_x * scale_x + pad_x`，纵轴同理；缩放必须为有限正数，左侧和顶部填充必须为有限非负数。框必须是模型输入上的绝对连续 `xyxy` 像素坐标，调用方负责提供实际缩放和填充值；已被推理框架还原的框应直接使用 `restore`。`clip=false` 时越出切片的框报错；`clip=true` 时先裁剪到切片，完全落在填充区或裁剪后失去面积的框仍报错。非有限结果、数值溢出和无效输入均被拒绝。

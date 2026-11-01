@@ -1,0 +1,12 @@
+{
+  "image_width": 100,
+  "image_height": 60,
+  "threshold": 0.5,
+  "metric": "iou",
+  "class_agnostic": false,
+  "tiles": [
+    {"tile":{"id":3,"x":40,"y":20,"width":60,"height":40},"clip_local":true,"detections":[
+      {"id":7,"image_id":2,"tile_id":3,"class_id":5,"score":0.8,"box":{"x1":-5,"y1":-3,"x2":70,"y2":30}}
+    ]}
+  ]
+}

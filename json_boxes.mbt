@@ -111,6 +111,20 @@ fn decode_tile_predictions(
     Ok(value) => value
     Err(message) => return Err(message)
   }
+  let transform = match group.clip_local {
+    Some(true) => {
+      if group.transform is Some(_) {
+        return Err("clip_local cannot be combined with transform")
+      }
+      match format {
+        NormalizedXyxy(_, _) | NormalizedCenter(_, _) =>
+          return Err("clip_local requires pixel box coordinates")
+        _ => ()
+      }
+      Some({ scale_x: 1.0, scale_y: 1.0, pad_x: 0.0, pad_y: 0.0, clip: true, })
+    }
+    _ => group.transform
+  }
   let detections : Array[Detection] = []
   for input in group.detections {
     let box = match decode_input_box(input.box, format) {
@@ -126,5 +140,5 @@ fn decode_tile_predictions(
       box,
     })
   }
-  Ok({ tile: group.tile, detections, transform: group.transform, })
+  Ok({ tile: group.tile, detections, transform, })
 }

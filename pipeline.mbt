@@ -6,6 +6,7 @@ struct TileInput {
   box_format : String?
   coordinate_width : Int?
   coordinate_height : Int?
+  clip_local : Bool?
 } derive(FromJson)
 
 ///|

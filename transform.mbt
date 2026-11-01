@@ -60,3 +60,21 @@ pub fn restore_model(
   }
   restore(tile, { ..detection, box: local_box, }, image_width, image_height)
 }
+
+///|
+/// Intersect a local pixel box with the tile before translating to the image.
+/// Fully outside, degenerate, non-finite or otherwise invalid inputs return Err.
+pub fn restore_clipped(
+  tile : Tile,
+  detection : Detection,
+  image_width : Int,
+  image_height : Int,
+) -> Result[Detection, String] {
+  restore_model(tile, detection, image_width, image_height, {
+    scale_x: 1.0,
+    scale_y: 1.0,
+    pad_x: 0.0,
+    pad_y: 0.0,
+    clip: true,
+  })
+}
