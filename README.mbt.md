@@ -128,7 +128,7 @@ python validation/sahi_layout.py --sahi-dir _build/sahi-reference --binary <nati
 
 `<native-cli>` 是构建生成的 `cmd/main/main` 可执行文件路径，Windows 上为 `main.exe`。脚本会核对参考仓库提交和所用源码内容；CI 同样运行该对照。
 
-`validation/real_coco.py` 使用先前保存的 COCO val2017 标注和 YOLO11n 整图预测，先核对文件哈希，再将整张图作为单个切片重放。已运行 10 张图、2136 个预测，pycocotools 的 12 项 bbox 指标在重放和 COCO 导出后均与原结果一致；记录见 `validation/real-coco-results.json`。这验证真实整图数据的坐标和评估链路，不是逐切片推理或精度提升验证。真实逐切片预测数据仍未取得。
+`validation/real_coco.py` 使用先前保存的 COCO val2017 标注和 YOLO11n 整图预测，先核对文件哈希，再将整张图作为单个切片重放。已运行 10 张图、2136 个预测，pycocotools 的 12 项 bbox 指标在重放和 COCO 导出后均与原结果一致；记录见 `validation/real-coco-results.json`。这验证真实整图数据的坐标和评估链路，不是逐切片推理验证。
 
 同一组预测也用于检验 JSON 框格式：以 `xywh` 直接输入，或把已有预测通过数学计算转换为归一化 `xyxy`、归一化中心点格式后输入。三个格式的 12 项指标均与原始预测一致；最大框坐标误差分别为 0、约 `5.68e-14`、约 `8.53e-14` 像素。各自的哈希、参数及结果保存在 `validation/real-coco-xywh-results.json`、`validation/real-coco-normalized_xyxy-results.json` 和 `validation/real-coco-normalized_cxcywh-results.json`。归一化框是由已有整图预测转换得到，并非额外运行检测器产生的预测。
 
@@ -139,6 +139,17 @@ python validation/real_coco.py --ground-truth <ground_truth.json> --predictions 
 ```
 
 `--input-format` 还支持 `xyxy`、`xywh` 和 `normalized_xyxy`。脚本验证输入哈希、输出标识、顺序、坐标误差以及 COCO 指标；筛选规则、原推理参数和随机种子记录在结果文件中。
+
+`validation/real_tiled_coco.py` 对 10 张 COCO val2017 图片实际裁剪并使用 YOLO11n 逐切片推理：窗口 256×256、重叠 64 像素，得到 59 个切片和 664 个有效预测。类别内 IoU NMS 阈值为 0.5，合并后保留 402 个、抑制 262 个；被抑制数量不等同于经标注确认的重复框数量。合并前后 MoonDetEval 的 AP 分别为 0.3295 和 0.3327，AP50 分别为 0.5063 和 0.5213；12 项指标与 pycocotools 逐项对照，最大差异约为 1.11e-16。这是选定 10 张图片、固定推理参数下的结果，不代表整体数据集的精度提升。脚本还逐框核对坐标平移、来源和 COCO 导出。原始逐切片局部预测、标注子集和完整指标分别保存在 [real-tiled-coco-predictions.json](validation/real-tiled-coco-predictions.json)、[real-tiled-coco-ground-truth.json](validation/real-tiled-coco-ground-truth.json) 和 [real-tiled-coco-results.json](validation/real-tiled-coco-results.json)。
+
+标注源、图像地址、模型地址、哈希与选择方式见 [real-tiled-coco-source.json](validation/real-tiled-coco-source.json) 和结果文件。COCO 标注采用 [CC BY 4.0](https://cocodataset.org/#termsofuse)，图像版权和许可由各自来源决定，标注子集保留原始许可与图片元数据；仓库不包含图片或模型权重。本验证使用的 Ultralytics YOLO11 模型和工具提供 [AGPL-3.0 与企业许可](https://docs.ultralytics.com/models/yolo11)，它们是外部实验依赖，不属于 MoonTile 核心依赖。
+
+复现需要根据结果文件中图片文件名和来源下载图片及权重，并准备 MoonTile 和对应版本的 MoonDetEval 原生命令。Python 环境使用 `ultralytics==8.3.0`、`torch==2.4.1`、`torchvision==0.19.1`、`numpy==1.24.4`、`opencv-python==5.0.0.93`、`pycocotools==2.0.7`；脚本验证权重与标注子集哈希，并记录图片及命令哈希。运行：
+
+```sh
+python validation/real_tiled_coco.py --ground-truth validation/real-tiled-coco-ground-truth.json --provenance validation/real-tiled-coco-source.json --images <image-cache> --weights <yolo11n.pt> --moontile <moontile-cli> --moontile-revision c4fe74eb9174945ee5da10ca394a67a7d5ea33d8 --moondeteval <moondeteval-cli> --moondeteval-revision c57bf0dde713546e93f5f44233d7d382334d83bd --count 10 --raw <predictions.json> --output <results.json>
+```
+不运行模型时，可使用 `python validation/replay_tiled_coco.py --binary <moontile-cli>` 回放保存的真实预测并检查坐标与合并数量；CI 运行该回放。
 
 `validation/real_video.py` 重放 MBMOT 现有演示的 OpenCV HOG 检测流，将每帧整图作为一个窗口，经单个 MoonTile 流处理进程转成 MBMOT 输入，再与直接输入原始检测流的跟踪结果逐帧比较。已验证 90 帧、291 个检测，跟踪输出全部一致；其中 80 帧的输入检测并非按分数降序排列。来源、二进制哈希和命令见 `validation/real-video-results.json`。本验证没有使用真实切片推理，也不衡量跟踪精度。
 
