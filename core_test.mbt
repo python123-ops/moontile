@@ -101,6 +101,11 @@ test "tile coverage and edge anchoring" {
   assert_eq(small[0].height, 5)
   assert_true(@moontile.plan_tiles(100, 70, 60, 40, 60, 0) is Err(_))
   assert_true(@moontile.plan_tiles(0, 70, 60, 40, 0, 0) is Err(_))
+  let pixel_overlap = @moontile.plan_tiles(120, 50, 50, 50, 29, 0).unwrap()
+  assert_eq(pixel_overlap.length(), 5)
+  assert_eq(pixel_overlap[1].x, 21)
+  assert_eq(pixel_overlap[2].x, 42)
+  assert_eq(pixel_overlap[4].x, 70)
 }
 
 ///|

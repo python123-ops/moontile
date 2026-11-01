@@ -72,7 +72,20 @@ MoonBit 调用方也可用 `StreamSession::new()` 和 `process_line` 逐行处�
 
 浏览器与原生 CLI 的 JSON 输出由 `web/test.mjs` 对照；核心测试覆盖切片、还原、NMS、类别隔离、同分、边界和非法输入。
 
-`validation/sahi_compare.py` 从固定的 SAHI 0.11.14 源码中提取原始 NMS 和贪心 NMM 分组函数，并以 PyTorch 运行参考实现。固定种子的 80 组、每组 25 框的单图单类别无同分场景覆盖 IoU 和 IoS；NMM 外接框另按组内坐标核对，结果见 `validation/sahi-results.json`。本库在重叠度等于阈值时保留，SAHI 0.11.14 在相等时抑制或合并；脚本单独验证这一差异。本对照未涵盖切片布局、多类别、掩码或同分行为。
+`validation/sahi_compare.py` 从固定的 SAHI 0.11.14 源码中提取原始 NMS 和贪心 NMM 分组函数，并以 PyTorch 运行参考实现。固定种子的 80 组、每组 25 框的单图单类别无同分场景覆盖 IoU 和 IoS；NMM 外接框另按组内坐标核对，结果见 `validation/sahi-results.json`。本库在重叠度等于阈值时保留，SAHI 0.11.14 在相等时抑制或合并；脚本单独验证这一差异。本对照未涵盖多类别、掩码或同分行为。
+
+`validation/sahi_layout.py` 对照同一固定版本的窗口生成及框平移：100 组尺寸和重叠参数的所有窗口一致；每组最多抽取 16 个窗口、共 1229 个合成框，平移结果一致。结果、固定种子、源码和本次二进制的哈希见 `validation/sahi-layout-results.json`。两库参数与边界规则存在差异：MoonTile 直接接收整数重叠像素，SAHI 接收比例并将相乘结果取整，例如 `29 / 50` 在本次运行中得到 28 像素；SAHI 的框平移可处理超出切片的框，而 MoonTile 默认拒绝这类输入。此对照只覆盖固定切片尺寸与二维框，不包含真实模型推理。
+
+复现窗口对照需要 Git、Python 标准库和本项目的 MoonBit 工具链；将 SAHI 检出到指定提交后运行：
+
+```sh
+git clone https://github.com/obss/sahi.git _build/sahi-reference
+git -C _build/sahi-reference checkout 0077a143abdabad2ac81eb375377c744662f7578
+moon build cmd/main --target native
+python validation/sahi_layout.py --sahi-dir _build/sahi-reference --binary <native-cli> --output validation/sahi-layout-results.json
+```
+
+`<native-cli>` 是构建生成的 `cmd/main/main` 可执行文件路径，Windows 上为 `main.exe`。脚本会核对参考仓库提交和所用源码内容；CI 同样运行该对照。
 
 `validation/real_coco.py` 使用先前保存的 COCO val2017 标注和 YOLO11n 整图预测，先核对文件哈希，再将整张图作为单个切片重放。已运行 10 张图、2136 个预测，pycocotools 的 12 项 bbox 指标在重放和 COCO 导出后均与原结果一致；记录见 `validation/real-coco-results.json`。这验证真实整图数据的坐标和评估链路，不是逐切片推理或精度提升验证。真实逐切片预测数据仍未取得。
 

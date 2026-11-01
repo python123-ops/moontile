@@ -1,0 +1,54 @@
+{
+  "status": "passed",
+  "command": "python validation/sahi_layout.py --sahi-dir _build/sahi-reference --binary <native-cli> --output validation/sahi-layout-results.json",
+  "python": "3.8.7",
+  "reference": "SAHI 0.11.14",
+  "reference_commit": "0077a143abdabad2ac81eb375377c744662f7578",
+  "source_sha256": {
+    "sahi/slicing.py": "954b40fb6a7ad8484ec0da6347a1534966eb8210e8b3ff60c28d0fea6df827f3",
+    "sahi/annotation.py": "aec54683603bde8e5ec9ac9214ca5ff5708e571f676af3a3119b79a244ad1d15"
+  },
+  "binary_sha256": "45f1bf7a6d41fd36ab8c04ab1b1b90ed0b9bc6412de1a1d300177154197a203e",
+  "seed": 20261101,
+  "layout_cases": 100,
+  "restored_boxes": 1229,
+  "mismatched_layouts": 0,
+  "mismatched_restored_boxes": 0,
+  "overlap_ratios": [
+    0.0,
+    0.25,
+    0.5,
+    0.75
+  ],
+  "differences": {
+    "ratio_rounding": {
+      "requested_pixels": 29,
+      "sahi_ratio": 0.58,
+      "sahi_effective_pixels": 28,
+      "sahi_x": [
+        0,
+        22,
+        44,
+        66,
+        70
+      ],
+      "moontile_x": [
+        0,
+        21,
+        42,
+        63,
+        70
+      ]
+    },
+    "out_of_tile": {
+      "sahi_shifted": [
+        0,
+        0,
+        2,
+        2
+      ],
+      "moontile_error": "box must be finite, positive and inside tile"
+    }
+  },
+  "scope": "All windows compared; up to 16 synthetic boxes per layout, including the final window; explicit fixed slice dimensions; no model inference or accuracy claim"
+}
