@@ -16,10 +16,13 @@ moon run cmd/main --target native -- examples/input.json --mbmot-frame 1
 moon -C examples/consumer test --target all --deny-warn
 node web/build.mjs
 node web/test.mjs
+node web/ui_test.mjs
 node web/stream_test.mjs
 ```
 
 `moon run` 读取 JSON 文件，成功时向标准输出写入一行 JSON；错误写入标准错误并返回退出码 2。示例为合成数据。运行 `node web/build.mjs` 后，从 `_build/site` 启动静态 HTTP 服务并打开 `index.html`。页面调用编译为 JavaScript 的同一 MoonBit 核心。
+
+浏览器演示可输入图像、切片和重叠尺寸，预览切片位置与编号；选择“用此规划替换下方输入”会生成空检测列表并替换原有 JSON，然后可填入检测结果。修改规划参数后须重新生成，非法规划不会改动已有检测输入。超过 1000 个切片时图中只画前 1000 个，生成的输入和计算结果仍包含全部切片；超过 100 个切片时预览不显示编号。图像读取、裁剪和模型推理由调用方完成。
 
 ## 使用与行为
 

@@ -9,5 +9,6 @@ if (built.status !== 0) process.exit(built.status ?? 1);
 const output = path.join(root, '_build', 'site');
 mkdirSync(output, {recursive: true});
 copyFileSync(path.join(root, 'web', 'index.html'), path.join(output, 'index.html'));
+copyFileSync(path.join(root, 'web', 'app.mjs'), path.join(output, 'app.mjs'));
 copyFileSync(path.join(root, '_build', 'js', 'release', 'build', 'web_bridge', 'web_bridge.js'), path.join(output, 'moontile.mjs'));
 console.log(`Built ${output}`);

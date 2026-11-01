@@ -18,5 +18,5 @@ jobs:
       - run: moon check --target all --deny-warn
       - run: moon test --target all --deny-warn
       - run: moon -C examples/consumer test --target all --deny-warn
-      - run: node web/build.mjs && node web/test.mjs && node web/stream_test.mjs
+      - run: node web/build.mjs && node web/test.mjs && node web/ui_test.mjs && node web/stream_test.mjs
       - run: moon package

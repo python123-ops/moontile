@@ -1,12 +1,44 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MoonTile 检测合并</title>
-<style>body{font:16px system-ui;max-width:1050px;margin:2rem auto;padding:0 1rem;color:#203041}h1{margin-bottom:.2rem}p{line-height:1.6}textarea{width:100%;height:17rem;box-sizing:border-box;font:13px monospace}button{padding:.6rem 1rem;cursor:pointer;background:#1c5d78;color:white;border:0;border-radius:5px}svg{width:100%;max-height:400px;background:#f4f8fa;border:1px solid #b5c7cf}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef3f5;padding:1rem}.tile{fill:none;stroke:#4380a4;stroke-dasharray:2 1;stroke-width:.3}.source{fill:none;stroke:#a56a00;stroke-dasharray:1 1;stroke-width:.4}.kept{fill:none;stroke:#12834c;stroke-width:.8}.suppressed{fill:none;stroke:#d3544b;stroke-width:.5;stroke-dasharray:1 1}</style></head>
-<body><h1>MoonTile</h1><p>蓝色虚线为切片，橙色为还原框，红色为被合并或抑制的框，绿色为最终输出框。编辑输入后由浏览器中的 MoonBit 核心重新计算。</p><textarea id="input"></textarea><p><button id="run">运行合并</button></p><svg id="canvas" role="img" aria-label="切片与检测框"></svg><pre id="report"></pre>
-<script type="module">
-import { moontile_process } from './moontile.mjs';
-const input = document.querySelector('#input'), svg = document.querySelector('#canvas'), report = document.querySelector('#report');
-input.value = JSON.stringify({image_width:100,image_height:60,threshold:.5,metric:'ios',class_agnostic:false,strategy:'greedy_nmm',tiles:[{tile:{id:0,x:0,y:0,width:60,height:60},detections:[{id:1,image_id:1,tile_id:0,class_id:0,score:.95,box:{x1:45,y1:10,x2:60,y2:30}}]},{tile:{id:1,x:40,y:0,width:60,height:60},detections:[{id:2,image_id:1,tile_id:1,class_id:0,score:.85,box:{x1:10,y1:10,x2:30,y2:30}}]}]},null,2);
-function draw(){try{const src=JSON.parse(input.value), out=JSON.parse(moontile_process(input.value));if(out.error)throw Error(out.error);svg.setAttribute('viewBox',`0 0 ${src.image_width} ${src.image_height}`);svg.replaceChildren();const rect=(x,y,w,h,cls)=>{const e=document.createElementNS('http://www.w3.org/2000/svg','rect');Object.entries({x,y,width:w,height:h,class:cls}).forEach(([k,v])=>e.setAttribute(k,v));svg.append(e)};for(const {tile:t} of src.tiles)rect(t.x,t.y,t.width,t.height,'tile');const ids=new Set(out.suppressed.map(x=>x.suppressed_id));for(const d of out.restored){const b=d.box;rect(b.x1,b.y1,b.x2-b.x1,b.y2-b.y1,ids.has(d.id)?'suppressed':'source')}for(const d of out.kept){const b=d.box;rect(b.x1,b.y1,b.x2-b.x1,b.y2-b.y1,'kept')}report.textContent=JSON.stringify(out,null,2)}catch(e){report.textContent=String(e)}}
-document.querySelector('#run').addEventListener('click',draw);draw();
-</script></body></html>
-
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoonTile 切片规划与检测合并</title>
+  <style>
+    body{font:16px system-ui;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#203041;background:#fbfcfd}
+    h1{margin-bottom:.2rem}h2{margin-top:2rem}p{line-height:1.6}fieldset{border:1px solid #b5c7cf;border-radius:6px;padding:1rem}
+    .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:.8rem}label{display:block;font-size:.9rem}input{box-sizing:border-box;width:100%;margin-top:.3rem;padding:.45rem;font:inherit}
+    textarea{width:100%;height:17rem;box-sizing:border-box;font:13px monospace}button{padding:.6rem 1rem;cursor:pointer;background:#1c5d78;color:white;border:0;border-radius:5px}button:disabled{opacity:.45;cursor:not-allowed}
+    .actions{display:flex;flex-wrap:wrap;gap:.6rem;margin:1rem 0}svg{width:100%;max-height:400px;background:#f4f8fa;border:1px solid #b5c7cf}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef3f5;padding:1rem}.tile{fill:none;stroke:#4380a4;stroke-dasharray:4 3;stroke-width:1;vector-effect:non-scaling-stroke}.tile-label{fill:#254b60;font-family:system-ui;paint-order:stroke;stroke:#fff;stroke-width:.5;vector-effect:non-scaling-stroke}.source{fill:none;stroke:#a56a00;stroke-dasharray:3 2;stroke-width:1;vector-effect:non-scaling-stroke}.kept{fill:none;stroke:#12834c;stroke-width:2;vector-effect:non-scaling-stroke}.suppressed{fill:none;stroke:#d3544b;stroke-width:1;stroke-dasharray:3 2;vector-effect:non-scaling-stroke}
+  </style>
+</head>
+<body>
+<h1>MoonTile</h1>
+<p>规划图像切片，并查看检测框还原与合并的结果。所有计算在本地浏览器中完成。</p>
+<section aria-labelledby="plan-title">
+  <h2 id="plan-title">1. 规划切片</h2>
+  <form id="plan-form">
+    <fieldset><legend>图像与切片尺寸（像素）</legend>
+      <div class="fields">
+        <label>图像宽度<input id="image-width" type="number" min="1" step="1" value="100" required></label>
+        <label>图像高度<input id="image-height" type="number" min="1" step="1" value="60" required></label>
+        <label>切片宽度<input id="tile-width" type="number" min="1" step="1" value="60" required></label>
+        <label>切片高度<input id="tile-height" type="number" min="1" step="1" value="60" required></label>
+        <label>水平重叠<input id="overlap-x" type="number" min="0" step="1" value="20" required></label>
+        <label>垂直重叠<input id="overlap-y" type="number" min="0" step="1" value="0" required></label>
+      </div>
+      <div class="actions"><button type="submit">生成规划</button><button type="button" id="use-plan" disabled>用此规划替换下方输入（清空预测）</button></div>
+    </fieldset>
+  </form>
+  <p id="plan-status" role="status" aria-live="polite"></p>
+  <svg id="plan-canvas" role="img" aria-label="切片规划图"></svg>
+</section>
+<section aria-labelledby="merge-title">
+  <h2 id="merge-title">2. 还原与合并</h2>
+  <p>编辑检测输入后运行合并。蓝色虚线为切片，橙色为还原框，红色为被抑制或合并的框，绿色为最终输出框。</p>
+  <label for="input">切片预测 JSON</label><textarea id="input" spellcheck="false"></textarea>
+  <div class="actions"><button id="run" type="button">运行合并</button></div>
+  <p id="merge-status" role="status" aria-live="polite"></p><svg id="canvas" role="img" aria-label="切片与检测框"></svg><pre id="report" aria-live="polite"></pre>
+</section>
+<script type="module" src="./app.mjs"></script>
+</body></html>
