@@ -128,6 +128,20 @@ pub(all) struct Tile {
 pub fn Tile::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 pub fn Tile::to_json(Self) -> Json
 
+pub struct TileGrid {
+  width : Int
+  height : Int
+  tile_width : Int
+  tile_height : Int
+  step_x : Int
+  step_y : Int
+  columns : Int
+  count : Int
+}
+pub fn TileGrid::get(Self, Int) -> Tile?
+pub fn TileGrid::length(Self) -> Int
+pub fn TileGrid::new(Int, Int, Int, Int, Int, Int) -> Result[Self, String]
+
 type TileInput derive(@json.FromJson)
 pub fn TileInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 

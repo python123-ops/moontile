@@ -1,6 +1,7 @@
 ///|
 test "merged detection feeds tracking and evaluation" {
-  let tile : @moontile.Tile = { id: 0, x: 0, y: 0, width: 100, height: 60, }
+  let grid = @moontile.TileGrid::new(100, 60, 100, 60, 0, 0).unwrap()
+  let tile = grid.get(0).unwrap()
   let d : @moontile.Detection = {
     id: 1,
     image_id: 1,

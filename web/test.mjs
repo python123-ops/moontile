@@ -12,6 +12,7 @@ assert.equal(nativePlan.status, 0, nativePlan.stderr);
 assert.deepEqual(plan, JSON.parse(nativePlan.stdout));
 assert.deepEqual(plan.tiles, [{id:0,x:0,y:0,width:60,height:60},{id:1,x:40,y:0,width:60,height:60}]);
 assert.ok(JSON.parse(moontile_plan('{')).error);
+assert.match(JSON.parse(moontile_plan(JSON.stringify({image_width:1001,image_height:1000,tile_width:1,tile_height:1,overlap_x:0,overlap_y:0}))).error, /tile count exceeds 1000000/);
 const invalidPlan = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/input.json','--plan'], {encoding:'utf8'});
 assert.notEqual(invalidPlan.status, 0);
 assert.equal(invalidPlan.stdout, '');

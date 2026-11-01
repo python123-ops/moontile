@@ -104,6 +104,74 @@ test "tile coverage and edge anchoring" {
 }
 
 ///|
+test "tile grid agrees with incremental edge-anchored planning" {
+  for width = 1; width <= 8; width = width + 1 {
+    for height = 1; height <= 7; height = height + 1 {
+      for tw = 1; tw <= 5; tw = tw + 1 {
+        for th = 1; th <= 4; th = th + 1 {
+          for ox = 0; ox < tw; ox = ox + 1 {
+            for oy = 0; oy < th; oy = oy + 1 {
+              let grid = @moontile.TileGrid::new(width, height, tw, th, ox, oy).unwrap()
+              let planned = @moontile.plan_tiles(width, height, tw, th, ox, oy).unwrap()
+              let actual_width = tw.min(width)
+              let actual_height = th.min(height)
+              let mut y = 0
+              let mut id = 0
+              for ;; {
+                let mut x = 0
+                for ;; {
+                  let tile = grid.get(id).unwrap()
+                  assert_eq(tile.id, id)
+                  assert_eq(tile.x, x)
+                  assert_eq(tile.y, y)
+                  assert_eq(tile.width, actual_width)
+                  assert_eq(tile.height, actual_height)
+                  assert_eq(planned[id].x, x)
+                  assert_eq(planned[id].y, y)
+                  id = id + 1
+                  if x == width - actual_width {
+                    break
+                  }
+                  x = x + (tw - ox).min(width - actual_width - x)
+                }
+                if y == height - actual_height {
+                  break
+                }
+                y = y + (th - oy).min(height - actual_height - y)
+              }
+              assert_eq(id, grid.length())
+              assert_eq(id, planned.length())
+              assert_true(grid.get(-1) is None)
+              assert_true(grid.get(id) is None)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+///|
+test "tile grid handles count and integer boundaries without allocation" {
+  let limit = @moontile.TileGrid::new(1000, 1000, 1, 1, 0, 0).unwrap()
+  assert_eq(limit.length(), 1000000)
+  let last = limit.get(999999).unwrap()
+  assert_eq(last.x, 999)
+  assert_eq(last.y, 999)
+  assert_true(@moontile.TileGrid::new(1001, 1000, 1, 1, 0, 0) is Err(_))
+  assert_true(@moontile.plan_tiles(1001, 1000, 1, 1, 0, 0) is Err(_))
+  assert_true(
+    @moontile.TileGrid::new(2147483647, 2147483647, 1, 1, 0, 0) is Err(_),
+  )
+  let wide = @moontile.TileGrid::new(2147483647, 1, 1073741823, 1, 0, 0).unwrap()
+  assert_eq(wide.length(), 3)
+  assert_eq(wide.get(1).unwrap().x, 1073741823)
+  assert_eq(wide.get(2).unwrap().x, 1073741824)
+  assert_true(@moontile.TileGrid::new(1, 1, 0, 1, 0, 0) is Err(_))
+  assert_true(@moontile.TileGrid::new(1, 1, 1, 1, 1, 0) is Err(_))
+}
+
+///|
 test "JSON planning validates fields and returns row-major windows" {
   let request =
     #|{"image_width":100,"image_height":60,"tile_width":60,"tile_height":60,"overlap_x":20,"overlap_y":0}

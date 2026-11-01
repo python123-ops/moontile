@@ -1,14 +1,27 @@
 ///|
-/// Generate row-major tiles, anchoring the last window to each image edge.
-/// Overlap is in pixels and must be smaller than the requested tile size.
-pub fn plan_tiles(
+/// A validated, row-major tile layout that computes each window on demand.
+pub struct TileGrid {
+  width : Int
+  height : Int
+  tile_width : Int
+  tile_height : Int
+  step_x : Int
+  step_y : Int
+  columns : Int
+  count : Int
+}
+
+///|
+/// Validate dimensions and count windows without allocating a tile array.
+/// As with plan_tiles, layouts with more than one million windows are rejected.
+pub fn TileGrid::new(
   width : Int,
   height : Int,
   tile_width : Int,
   tile_height : Int,
   overlap_x : Int,
   overlap_y : Int,
-) -> Result[Array[Tile], String] {
+) -> Result[TileGrid, String] {
   if width <= 0 || height <= 0 || tile_width <= 0 || tile_height <= 0 {
     return Err("image and tile dimensions must be positive")
   }
@@ -22,24 +35,77 @@ pub fn plan_tiles(
   let th = tile_height.min(height)
   let sx = tile_width - overlap_x
   let sy = tile_height - overlap_y
+  let dx = width - tw
+  let dy = height - th
+  // ceil(distance / step) + 1, without overflowing distance + step.
+  let columns = if dx == 0 { 1 } else { (dx - 1) / sx + 2 }
+  let rows = if dy == 0 { 1 } else { (dy - 1) / sy + 2 }
+  if columns > 1000000 || rows > 1000000 / columns {
+    return Err("tile count exceeds 1000000")
+  }
+  Ok({
+    width,
+    height,
+    tile_width: tw,
+    tile_height: th,
+    step_x: sx,
+    step_y: sy,
+    columns,
+    count: columns * rows,
+  })
+}
+
+///|
+/// Number of windows in the layout.
+pub fn TileGrid::length(self : TileGrid) -> Int {
+  self.count
+}
+
+///|
+/// Get a row-major window by stable ID; invalid IDs return None.
+pub fn TileGrid::get(self : TileGrid, id : Int) -> Tile? {
+  if id < 0 || id >= self.count {
+    return None
+  }
+  let col = id % self.columns
+  let row = id / self.columns
+  // The final step can overshoot the edge, so avoid multiplying it.
+  let x = if col == self.columns - 1 {
+    self.width - self.tile_width
+  } else {
+    col * self.step_x
+  }
+  let rows = self.count / self.columns
+  let y = if row == rows - 1 {
+    self.height - self.tile_height
+  } else {
+    row * self.step_y
+  }
+  Some({ id, x, y, width: self.tile_width, height: self.tile_height, })
+}
+
+///|
+/// Generate row-major tiles, anchoring the last window to each image edge.
+/// Overlap is in pixels and must be smaller than the requested tile size.
+pub fn plan_tiles(
+  width : Int,
+  height : Int,
+  tile_width : Int,
+  tile_height : Int,
+  overlap_x : Int,
+  overlap_y : Int,
+) -> Result[Array[Tile], String] {
+  let grid = match
+    TileGrid::new(width, height, tile_width, tile_height, overlap_x, overlap_y) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
   let result : Array[Tile] = []
-  let mut y = 0
-  for ;; {
-    let mut x = 0
-    for ;; {
-      if result.length() >= 1000000 {
-        return Err("tile count exceeds 1000000")
-      }
-      result.push({ id: result.length(), x, y, width: tw, height: th, })
-      if x == width - tw {
-        break
-      }
-      x = x + sx.min(width - tw - x)
+  for id = 0; id < grid.length(); id = id + 1 {
+    match grid.get(id) {
+      Some(tile) => result.push(tile)
+      None => return Err("invalid tile index")
     }
-    if y == height - th {
-      break
-    }
-    y = y + sy.min(height - th - y)
   }
   Ok(result)
 }
