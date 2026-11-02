@@ -91,7 +91,8 @@ def main():
         p.error('counts must be 10..1000000, repeat and sample-ms must be positive')
     subprocess.run(['moon', 'build', 'validation/memory_scale', '--target', 'native', '--release', '--deny-warn'], cwd=ROOT, check=True)
     binary = ROOT / '_build/native/release/build/validation/memory_scale/memory_scale'
-    if sys.platform == 'win32':
+    # MoonBit native builds may use the .exe suffix on Linux as well.
+    if binary.with_suffix('.exe').is_file():
         binary = binary.with_suffix('.exe')
     measurements = []
     method = ''
