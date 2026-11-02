@@ -1,0 +1,58 @@
+{
+  "command": "python validation/nms_scale.py --before <baseline-release-cli> --after <new-release-cli> --output validation/nms-scale-results.json",
+  "baseline_revision": "76dfafc",
+  "before_binary_sha256": "9e9ebc3cdff1d4f05556fa1e47c061f89147330c2855d4741297bd6be58053e4",
+  "after_binary_sha256": "5e8d80820367d353ef74c85d2b3a184816ee694658ce28f13774390bb89ce79d",
+  "source_sha256": "0e69e060a24527621d486fff5b69741f7738a24a006416cf70771ccb354482c9",
+  "fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "seed": 20261102,
+  "platform": "Windows-10-10.0.26100-SP0",
+  "toolchain": "moon 0.1.20260920 (914d7da 2026-09-20) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moon.exe\nmoonc v0.10.14+7d59c7ec9 (2026-09-18) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moonc.exe\nmoonrun 0.1.20260920 (914d7da 2026-09-20) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moonrun.exe\n\nFeature flags enabled: rr_moon_mod,rr_moon_pkg",
+  "build_mode": "native release",
+  "repeat": 3,
+  "warmups": 1,
+  "scope": "Synthetic one-class workloads. Timings include process startup and JSON. Real crop predictions are checked for output equivalence only.",
+  "real_images": 200,
+  "real_predictions": 11657,
+  "real_outputs_identical": true,
+  "results": [
+    {
+      "scenario": "scattered",
+      "detections": 10000,
+      "input_sha256": "e4a9960ff61b5ed9c51ac504e0a75fdb1c2ae0d827dfbb7286e0265c1d516306",
+      "output_sha256": "c8ba3fc301054676589e84ffcba9bbd1988c6a2923f8acb3345f67dc11a8661c",
+      "before_seconds": [
+        0.3830176999999999,
+        0.37873259999999975,
+        0.3705265999999998
+      ],
+      "after_seconds": [
+        0.14213779999999998,
+        0.14210509999999998,
+        0.13314709999999996
+      ],
+      "before_median": 0.37873259999999975,
+      "after_median": 0.14210509999999998,
+      "speedup": 2.665158393330006
+    },
+    {
+      "scenario": "identical",
+      "detections": 10000,
+      "input_sha256": "67e64466c50653dd19e97055f23639d8e296d2c2a839e715c5b0c7be7672767e",
+      "output_sha256": "ed14d137ae562317d8e0a53d51aea8e1679ebe931b0b1a1145e85093e2036296",
+      "before_seconds": [
+        0.10859560000000013,
+        0.1118351999999998,
+        0.11023680000000002
+      ],
+      "after_seconds": [
+        0.10955849999999989,
+        0.10814700000000022,
+        0.1156467000000001
+      ],
+      "before_median": 0.11023680000000002,
+      "after_median": 0.10955849999999989,
+      "speedup": 1.00619121291365
+    }
+  ]
+}

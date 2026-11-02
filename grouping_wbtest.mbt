@@ -157,3 +157,47 @@ test "grouped algorithms match full-scan references with interleaved groups" {
   }
   assert_true(cases_with_suppression > 0)
 }
+
+///|
+test "spatial NMS matches full scan across blocks and orderings" {
+  for scenario = 0; scenario < 5; scenario = scenario + 1 {
+    let detections : Array[Detection] = []
+    for i = 0; i < 260; i = i + 1 {
+      let x = if scenario == 0 {
+        (i * 3).to_double()
+      } else if scenario == 1 {
+        10.0
+      } else {
+        ((i * 47 + scenario * 13) % 83).to_double()
+      }
+      let y = if scenario == 2 { (i * 19 % 73).to_double() } else { 0.0 }
+      let width = if scenario == 3 && i % 37 == 0 { 100.0 } else { 6.0 }
+      detections.push({
+        id: i,
+        image_id: if scenario == 4 {
+          i % 2
+        } else {
+          0
+        },
+        tile_id: i % 3,
+        class_id: if scenario == 4 {
+          i % 3
+        } else {
+          0
+        },
+        score: (i * 23 % 7).to_double() / 7.0,
+        box: { x1: x, y1: y, x2: x + width, y2: y + 6.0, },
+      })
+    }
+    for metric in [IoU, IoS] {
+      for agnostic in [false, true] {
+        for threshold in [0.0, 0.5, 1.0] {
+          assert_merge_equal(
+            suppress(detections, threshold, metric, class_agnostic=agnostic).unwrap(),
+            reference_suppress(detections, threshold, metric, agnostic),
+          )
+        }
+      }
+    }
+  }
+}

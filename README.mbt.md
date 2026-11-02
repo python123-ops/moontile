@@ -65,7 +65,7 @@ JSON 每个切片可选择性增加 `transform`，各切片可以使用不同参
 
 归一化格式必须同时提供切片组级别的 `coordinate_width` 和 `coordinate_height`，均为正整数。无 `transform` 时它们必须等于切片尺寸；有 `transform` 时须填写检测器输出所处的模型输入尺寸，由调用方确保与实际预处理一致。像素格式可省略这两个字段；如果提供，也必须成对且为正整数，但不参与像素框转换。空预测切片同样校验格式和尺寸。转换后的结果、浏览器预览、COCO 导出与两种视频流使用同一处理流程。
 
-`suppress(detections, threshold, metric, class_agnostic=...)` 按得分降序执行贪心 NMS，同分保持输入顺序。默认按图像和类别分别处理；`class_agnostic=true` 只取消类别隔离，图像之间仍互不影响。支持 IoU 和交集除以较小框面积的 IoS，重叠度 **严格大于** 阈值时抑制。检测 ID 在同一调用中必须唯一，返回的抑制记录指出保留框 ID、被抑制框 ID 和重叠度。处理前会验证整个输入，错误不会返回部分结果。NMS 和外接框合并按图像、类别建立索引以跳过无关分组；单组内部最坏仍需要比较二次方数量的框，并需额外空间保存索引。CLI 一次读取完整文件，大规模输入应由调用方按图像拆分和限制大小。
+`suppress(detections, threshold, metric, class_agnostic=...)` 按得分降序执行贪心 NMS，同分保持输入顺序。默认按图像和类别分别处理；`class_agnostic=true` 只取消类别隔离，图像之间仍互不影响。支持 IoU 和交集除以较小框面积的 IoS，重叠度 **严格大于** 阈值时抑制。检测 ID 在同一调用中必须唯一，返回的抑制记录指出保留框 ID、被抑制框 ID 和重叠度。处理前会验证整个输入，错误不会返回部分结果。NMS 和外接框合并按图像、类别建立索引以跳过无关分组；NMS 对超过 64 个框的组进一步按水平位置建立空间块，跳过与候选框不相交的块，仍按得分排序选择最早的抑制来源。索引需要随检测数量增长的额外空间；框大范围重叠等情况下仍可能有二次方开销，外接框合并也仍有二次方最坏情况。CLI 一次读取完整文件，大规模输入应由调用方按图像拆分和限制大小。
 
 对于跨切片的部分框，可以选择 `merge_envelopes`：先按分数和输入顺序选出种子，将与**原始种子框**重叠度严格超过阈值的框归入同一组，并输出覆盖整组的外接框。匹配不使用不断扩大的外接框，也不进行传递合并；代表框保留种子的 ID、图像、切片、类别与最高分，其他成员及其与种子的重叠度记录在 `suppressed` 中。默认按图像和类别隔离；`class_agnostic=true` 时可以跨类别合并，输出仍采用种子的类别。高重叠目标可能被合为一个框，阈值需结合具体数据验证。
 
@@ -203,3 +203,5 @@ python validation/real_tiled_video.py infer --video <vtest.avi> --moontile <moon
 ## 边界与参考
 
 只处理二维轴对齐框；不包含掩码合并、旋转框、模型推理或视频解码。后处理参考 [SAHI](https://github.com/obss/sahi) 的公开问题定义；已验证范围和已知差异见上文。本项目为独立实现，Apache-2.0 许可。已有 [moonbit-visual-debug](https://mooncakes.io/docs/xlh123jjj/moonbit-visual-debug) 和 [moonbit-robot-vision-formats](https://mooncakes.io/docs/ppyj663/moonbit-robot-vision-formats) 主要提供视觉调试、格式交换和机器人视觉数据处理；发布前仍需复查 Mooncakes 名称和同类包。
+
+一次 Windows native release 对照中，单图单类 10,000 个随机排序的不相交合成框的处理耗时中位数从 0.379 秒降至 0.142 秒；10,000 个完全重合的框分别为 0.110 秒和 0.110 秒。每组预热一次并交替测量三次，包含进程启动和 JSON 开销；这些数字不是生产吞吐量。对 200 张图的 11,657 个真实切片预测，新旧输出逐字节一致。[复现脚本](validation/nms_scale.py)和[完整结果](validation/nms-scale-results.json)记录参数、输入及二进制哈希。
