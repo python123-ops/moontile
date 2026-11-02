@@ -19,7 +19,11 @@ def main():
     p.add_argument('--require-plan', action='store_true')
     p.add_argument('--plan-output', type=Path)
     p.add_argument('--boundary-output', type=Path)
+    p.add_argument('--inspect-grid', action='store_true')
+    p.add_argument('--inspection-output', type=Path)
     args = p.parse_args()
+    if (args.inspect_grid and not args.require_plan) or (args.inspection_output and not args.inspect_grid):
+        p.error('--inspect-grid requires --require-plan; --inspection-output requires --inspect-grid')
     raw_path = args.raw
     raw = json.loads(raw_path.read_text(encoding='utf8'))
     report = json.loads(args.report.read_text(encoding='utf8'))
@@ -29,6 +33,7 @@ def main():
     boundary_edges = {'left': 0, 'top': 0, 'right': 0, 'bottom': 0}
     boundary_images = boundary_groups = boundary_boxes = 0
     checked_plans = dropped_plans = wrong_geometry = 0
+    inspected = injected = 0
     with tempfile.TemporaryDirectory(prefix='moontile-tiled-replay-') as tmp:
         path = Path(tmp) / 'input.json'
         for request in raw['requests']:
@@ -69,6 +74,22 @@ def main():
                     if bad.returncode == 0 or bad.stdout or 'tile geometry differs from grid' not in bad.stderr:
                         raise AssertionError('wrong tile geometry was not rejected atomically')
                     wrong_geometry += 1
+                if args.inspect_grid:
+                    def inspect(value):
+                        path.write_text(json.dumps(value, separators=(',', ':')), encoding='utf8')
+                        return json.loads(subprocess.check_output([str(args.binary.resolve()), str(path), '--inspect-grid', '1'], encoding='utf8'))
+                    summary = inspect(planned)
+                    if not summary['complete'] or summary['expected_tiles'] != len(planned['tiles']):
+                        raise AssertionError('complete grid inspection failed')
+                    inspected += 1
+                    bad_grid = copy.deepcopy(wrong)
+                    missing_id = bad_grid['tiles'].pop()['tile']['id']
+                    unexpected_id = len(planned['tiles']) + 5
+                    bad_grid['tiles'].append({'tile': {'id': unexpected_id, 'x': 0, 'y': 0, 'width': 1, 'height': 1}, 'detections': []})
+                    summary = inspect(bad_grid)
+                    if summary['complete'] or summary['missing_count'] != 1 or summary['missing_ids'] != [missing_id] or summary['mismatched_count'] != 1 or summary['mismatched_ids'] != [0] or summary['unexpected_count'] != 1 or summary['unexpected_ids'] != [unexpected_id]:
+                        raise AssertionError('injected grid issues not identified')
+                    injected += 1
             if args.clip_boundary:
                 mutated = copy.deepcopy(request)
                 image_has_changes = False
@@ -117,6 +138,16 @@ def main():
         print('Checked {} complete plans, {} missing tiles and {} wrong geometries.'.format(checked_plans, dropped_plans, wrong_geometry))
     elif args.plan_output:
         raise ValueError('--plan-output requires --require-plan')
+    if args.inspect_grid:
+        inspection_report = {'status': 'passed', 'images': len(raw['requests']), 'complete_inputs_verified': inspected,
+                             'inputs_with_three_injected_errors_verified': injected, 'tiles': sum(len(r['tiles']) for r in raw['requests']),
+                             'detections': counts[0], 'fixture_sha256': hashlib.sha256(raw_path.read_bytes()).hexdigest(),
+                             'binary_sha256': hashlib.sha256(args.binary.read_bytes()).hexdigest(),
+                             'command': 'python validation/replay_tiled_coco.py --binary <moontile-cli> --raw validation/scale/predictions.json --report validation/scale/results.json --require-plan --inspect-grid --inspection-output validation/scale/json-grid-inspection-results.json',
+                             'scope': 'Saved real crop predictions; missing, altered and unexpected windows are synthetic error injections.'}
+        if args.inspection_output:
+            args.inspection_output.write_text(json.dumps(inspection_report, indent=2) + '\n', encoding='utf8')
+        print('JSON inspection checked {} complete inputs and {} inputs with three injected errors.'.format(inspected, injected))
     if args.clip_boundary:
         if not boundary_boxes:
             raise AssertionError('no edge-touching predictions in fixture')

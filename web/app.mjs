@@ -1,16 +1,17 @@
-import {moontile_plan, moontile_process} from './moontile.mjs';
+import {moontile_plan, moontile_process, moontile_inspect} from './moontile.mjs';
 
 const el = id => document.querySelector(`#${id}`);
 const input = el('input'), canvas = el('canvas'), report = el('report'), mergeStatus = el('merge-status');
 const planCanvas = el('plan-canvas'), planStatus = el('plan-status'), usePlan = el('use-plan');
 const backgroundFile = el('background-file'), backgroundStatus = el('background-status'), clearBackground = el('clear-background');
 const inputFile = el('input-file'), fileStatus = el('file-status'), saveResult = el('save-result');
+const inspectReport = el('inspect-report');
 const fields = ['image-width', 'image-height', 'tile-width', 'tile-height', 'overlap-x', 'overlap-y'];
 let currentPlan = null;
 let currentResult = null, background = null, backgroundUrl = null, backgroundVersion = 0;
 let inputRevision = 0, importVersion = 0;
 
-input.value = JSON.stringify({image_width:100,image_height:60,threshold:.5,metric:'ios',class_agnostic:false,strategy:'greedy_nmm',tiles:[{tile:{id:0,x:0,y:0,width:60,height:60},detections:[{id:1,image_id:1,tile_id:0,class_id:0,score:.95,box:{x1:45,y1:10,x2:60,y2:30}}]},{tile:{id:1,x:40,y:0,width:60,height:60},detections:[{id:2,image_id:1,tile_id:1,class_id:0,score:.85,box:{x1:10,y1:10,x2:30,y2:30}}]}]}, null, 2);
+input.value = JSON.stringify({image_width:100,image_height:60,threshold:.5,metric:'ios',class_agnostic:false,strategy:'greedy_nmm',tile_plan:{tile_width:60,tile_height:60,overlap_x:20,overlap_y:0},tiles:[{tile:{id:0,x:0,y:0,width:60,height:60},detections:[{id:1,image_id:1,tile_id:0,class_id:0,score:.95,box:{x1:45,y1:10,x2:60,y2:30}}]},{tile:{id:1,x:40,y:0,width:60,height:60},detections:[{id:2,image_id:1,tile_id:1,class_id:0,score:.85,box:{x1:10,y1:10,x2:30,y2:30}}]}]}, null, 2);
 
 function rect(svg, x, y, width, height, cls) {
   const node = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -37,7 +38,7 @@ function renderPlan(event) {
     const [image_width,image_height,tile_width,tile_height,overlap_x,overlap_y] = values;
     const plan = JSON.parse(moontile_plan(JSON.stringify({image_width,image_height,tile_width,tile_height,overlap_x,overlap_y})));
     if (plan.error) throw Error(plan.error);
-    currentPlan = plan;
+    currentPlan = {...plan, tile_plan:{tile_width,tile_height,overlap_x,overlap_y}};
     drawPlan(plan);
     usePlan.disabled = false;
   } catch (error) {
@@ -143,13 +144,22 @@ for (const id of fields) el(id).addEventListener('input', () => {
 usePlan.addEventListener('click', () => {
   if (!currentPlan) return;
   inputRevision++;
-  input.value = JSON.stringify({image_width:currentPlan.image_width,image_height:currentPlan.image_height,threshold:.5,metric:'iou',class_agnostic:false,tiles:currentPlan.tiles.map(tile => ({tile,detections:[]}))}, null, 2);
+  input.value = JSON.stringify({image_width:currentPlan.image_width,image_height:currentPlan.image_height,threshold:.5,metric:'iou',class_agnostic:false,tile_plan:currentPlan.tile_plan,tiles:currentPlan.tiles.map(tile => ({tile,detections:[]}))}, null, 2);
+  inspectReport.textContent = '输入已修改，请重新检查。';
   fileStatus.textContent = '已使用规划替换输入。';
   renderMerge();
 });
 el('run').addEventListener('click', renderMerge);
+el('inspect-grid').addEventListener('click', () => {
+  try {
+    const result = JSON.parse(moontile_inspect(input.value));
+    if (result.error) throw Error(result.error);
+    inspectReport.textContent = JSON.stringify(result, null, 2);
+  } catch (error) { inspectReport.textContent = `检查失败：${error.message}`; }
+});
 input.addEventListener('input', () => {
   inputRevision++;
+  inspectReport.textContent = '输入已修改，请重新检查。';
   currentResult = null; canvas.replaceChildren(); mergeStatus.textContent = '';
   saveResult.disabled = true;
   report.textContent = '输入已修改，请重新运行合并。';
@@ -165,11 +175,26 @@ inputFile.addEventListener('change', async () => {
     const source = await file.text();
     if (version !== importVersion) return;
     if (revision !== inputRevision) { fileStatus.textContent = '读取期间输入已变化，未替换当前内容。'; return; }
-    const result = computeMerge(source);
+    let result;
+    let inspection;
+    try { result = computeMerge(source); }
+    catch (error) {
+      inspection = JSON.parse(moontile_inspect(source));
+      if (inspection.error || inspection.complete) throw error;
+    }
     inputRevision++;
     input.value = source;
-    showResult(result);
-    fileStatus.textContent = `已导入并处理 ${file.name}。`;
+    if (result) {
+      inspectReport.textContent = '输入已修改，请重新检查。';
+      showResult(result);
+      fileStatus.textContent = `已导入并处理 ${file.name}。`;
+    } else {
+      currentResult = null; canvas.replaceChildren(); mergeStatus.textContent = '';
+      saveResult.disabled = true;
+      report.textContent = '切片规划尚不完整，请修正后运行合并。';
+      inspectReport.textContent = JSON.stringify(inspection, null, 2);
+      fileStatus.textContent = `已导入 ${file.name}，请查看完整性检查结果。`;
+    }
   } catch (error) {
     if (version !== importVersion) return;
     if (revision !== inputRevision) { fileStatus.textContent = '读取期间输入已变化，未替换当前内容。'; return; }

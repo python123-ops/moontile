@@ -9,7 +9,7 @@ pkgtype(kind: "foreign_library")
 options(
   link: {
     "js": {
-      "exports": [ "moontile_process", "moontile_plan" ],
+      "exports": [ "moontile_process", "moontile_plan", "moontile_inspect" ],
       "format": "esm",
     },
   },

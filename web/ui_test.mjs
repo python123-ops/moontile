@@ -11,7 +11,7 @@ class Element {
   click() { downloads.push({name:this.download, url:this.href}); }
 }
 const defaults = {'image-width':'100','image-height':'60','tile-width':'60','tile-height':'60','overlap-x':'20','overlap-y':'0'};
-const ids = ['input','canvas','report','merge-status','plan-canvas','plan-status','use-plan','plan-form','run','background-file','background-status','clear-background','input-file','file-status','save-input','save-result',...Object.keys(defaults)];
+const ids = ['input','canvas','report','merge-status','plan-canvas','plan-status','use-plan','plan-form','run','inspect-grid','inspect-report','background-file','background-status','clear-background','input-file','file-status','save-input','save-result',...Object.keys(defaults)];
 const elements = Object.fromEntries(ids.map(id => [id, new Element(defaults[id] ?? '')]));
 const imageFiles = new Map(), revoked = [];
 const downloads = [];
@@ -162,3 +162,25 @@ assert.match(e('merge-status').textContent, /前 1000 个切片/);
 await new Promise(resolve => setTimeout(resolve, 0));
 assert.ok(downloads.every(item => revoked.includes(item.url)));
 console.log('Browser planning and merge interactions pass.');
+
+e('use-plan').dispatch('click');
+e('inspect-grid').dispatch('click');
+assert.equal(JSON.parse(e('inspect-report').textContent).complete, true);
+const incomplete = JSON.parse(e('input').value);
+const removedTile = incomplete.tiles.pop().tile.id;
+e('input').value = JSON.stringify(incomplete);
+e('input').dispatch('input');
+e('inspect-grid').dispatch('click');
+assert.deepEqual(JSON.parse(e('inspect-report').textContent).missing_ids, [removedTile]);
+e('input').value = '{}';
+e('input').dispatch('input');
+assert.match(e('inspect-report').textContent, /重新检查/);
+e('inspect-grid').dispatch('click');
+assert.match(e('inspect-report').textContent, /检查失败/);
+
+e('input-file').files = [{name:'incomplete.json',text:async () => JSON.stringify(incomplete)}];
+e('input-file').dispatch('change');
+await Promise.resolve();
+assert.match(e('file-status').textContent, /已导入.*完整性检查/);
+assert.deepEqual(JSON.parse(e('inspect-report').textContent).missing_ids, [removedTile]);
+assert.equal(e('save-result').disabled, true);

@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "images": 200,
+  "complete_inputs_verified": 200,
+  "inputs_with_three_injected_errors_verified": 200,
+  "tiles": 1406,
+  "detections": 11657,
+  "fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "binary_sha256": "cdc2a264b56040706acc6083e80140e24e43cbabaf3a38c27bde815623b6f963",
+  "command": "python validation/replay_tiled_coco.py --binary <moontile-cli> --raw validation/scale/predictions.json --report validation/scale/results.json --require-plan --inspect-grid --inspection-output validation/scale/json-grid-inspection-results.json",
+  "scope": "Saved real crop predictions; missing, altered and unexpected windows are synthetic error injections."
+}

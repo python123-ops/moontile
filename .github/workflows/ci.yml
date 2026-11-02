@@ -30,7 +30,7 @@ jobs:
           if [ ! -x "$binary" ]; then binary=_build/native/debug/build/cmd/main/main; fi
           python validation/sahi_layout.py --sahi-dir _build/sahi-reference --binary "$binary" --output "$RUNNER_TEMP/sahi-layout-results.json"
           python validation/replay_tiled_coco.py --binary "$binary"
-          python validation/replay_tiled_coco.py --binary "$binary" --raw validation/scale/predictions.json --report validation/scale/results.json --clip-boundary --require-plan
+          python validation/replay_tiled_coco.py --binary "$binary" --raw validation/scale/predictions.json --report validation/scale/results.json --clip-boundary --require-plan --inspect-grid
       - run: |
           moon build validation/batch_bench --target native
           bench=_build/native/debug/build/validation/batch_bench/batch_bench.exe

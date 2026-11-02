@@ -47,7 +47,8 @@
   <label for="input-file">导入切片预测 JSON（可选）</label><input id="input-file" type="file" accept="application/json,.json">
   <p id="file-status" role="status" aria-live="polite"></p>
   <label for="input">切片预测 JSON</label><textarea id="input" spellcheck="false"></textarea>
-  <div class="actions"><button id="run" type="button">运行合并</button><button id="save-input" type="button">下载输入 JSON</button><button id="save-result" type="button" disabled>下载结果 JSON</button></div>
+  <div class="actions"><button id="run" type="button">运行合并</button><button id="inspect-grid" type="button">检查切片完整性</button><button id="save-input" type="button">下载输入 JSON</button><button id="save-result" type="button" disabled>下载结果 JSON</button></div>
+  <p>完整性检查需要输入包含 tile_plan；检查结果显示缺失、错误和多余切片的数量及编号样本。</p><pre id="inspect-report" aria-live="polite"></pre>
   <p id="merge-status" role="status" aria-live="polite"></p><svg id="canvas" role="img" aria-label="切片与检测框"></svg><pre id="report" aria-live="polite"></pre>
 </section>
 <script type="module" src="./app.mjs"></script>

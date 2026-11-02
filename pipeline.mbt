@@ -70,7 +70,9 @@ pub(all) struct PipelineResult {
 }
 
 ///|
-fn process_data(source : String) -> Result[PipelineResult, String] {
+fn prepare_data(
+  source : String,
+) -> Result[(TileAccumulator, TileGrid?), String] {
   let json = @json.parse(source) catch { _ => return Err("invalid JSON") }
   let input : PipelineInput = @json.from_json(json) catch {
     _ => return Err("invalid pipeline fields")
@@ -113,18 +115,29 @@ fn process_data(source : String) -> Result[PipelineResult, String] {
       Some(grid)
     }
   }
-  process_with_grid(
-    input.image_width,
-    input.image_height,
-    tiles,
-    {
+  let accumulator = match
+    prepare_accumulator(input.image_width, input.image_height, tiles, {
       threshold: input.threshold,
       metric,
       class_agnostic: input.class_agnostic,
       strategy,
-    },
-    grid,
-  )
+    }) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
+  Ok((accumulator, grid))
+}
+
+///|
+fn process_data(source : String) -> Result[PipelineResult, String] {
+  let (accumulator, grid) = match prepare_data(source) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
+  match grid {
+    Some(value) => accumulator.finish_grid(value)
+    None => accumulator.finish()
+  }
 }
 
 ///|
@@ -149,6 +162,24 @@ fn process_with_grid(
   grid : TileGrid?,
 ) -> Result[PipelineResult, String] {
   let accumulator = match
+    prepare_accumulator(image_width, image_height, tiles, config) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
+  match grid {
+    Some(value) => accumulator.finish_grid(value)
+    None => accumulator.finish()
+  }
+}
+
+///|
+fn prepare_accumulator(
+  image_width : Int,
+  image_height : Int,
+  tiles : Array[TilePredictions],
+  config : MergeConfig,
+) -> Result[TileAccumulator, String] {
+  let accumulator = match
     TileAccumulator::new(image_width, image_height, config) {
     Ok(value) => value
     Err(message) => return Err(message)
@@ -159,10 +190,7 @@ fn process_with_grid(
       Err(message) => return Err(message)
     }
   }
-  match grid {
-    Some(value) => accumulator.finish_grid(value)
-    None => accumulator.finish()
-  }
+  Ok(accumulator)
 }
 
 ///|
@@ -217,4 +245,39 @@ fn pipeline_result_json(processed : PipelineResult) -> Json {
     "kept": processed.merged.kept.to_json(),
     "suppressed": trace.to_json(),
   })
+}
+
+///|
+/// Inspect a pipeline JSON document with a required tile_plan, without merging.
+/// Invalid input returns an error; ID samples are bounded independently.
+pub fn inspect_grid_json(
+  source : String,
+  max_reported? : Int = 100,
+) -> Result[String, String] {
+  let (accumulator, grid) = match prepare_data(source) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
+  let grid = match grid {
+    Some(value) => value
+    None => return Err("tile_plan is required for inspection")
+  }
+  let report = match accumulator.inspect_grid(grid, max_reported~) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
+  Ok(
+    Json::object({
+      "expected_tiles": report.expected_tiles.to_json(),
+      "received_tiles": report.received_tiles.to_json(),
+      "missing_count": report.missing_count.to_json(),
+      "mismatched_count": report.mismatched_count.to_json(),
+      "unexpected_count": report.unexpected_count.to_json(),
+      "missing_ids": report.missing_ids.to_json(),
+      "mismatched_ids": report.mismatched_ids.to_json(),
+      "unexpected_ids": report.unexpected_ids.to_json(),
+      "mixed_images": report.mixed_images.to_json(),
+      "complete": report.is_complete().to_json(),
+    }).stringify(),
+  )
 }

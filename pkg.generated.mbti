@@ -11,6 +11,8 @@ pub fn export_coco(Array[Detection], Array[CategoryMapping]) -> Result[String, S
 
 pub fn export_mbmot(Array[Detection], Int) -> Result[String, String]
 
+pub fn inspect_grid_json(String, max_reported? : Int) -> Result[String, String]
+
 pub fn merge_envelopes(Array[Detection], Double, Overlap, class_agnostic? : Bool) -> Result[MergeResult, String]
 
 pub fn plan_json(String) -> Result[String, String]

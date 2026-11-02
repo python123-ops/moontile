@@ -15,3 +15,12 @@ pub fn moontile_plan(source : String) -> String {
     Err(message) => Json::object({ "error": message.to_json() }).stringify()
   }
 }
+
+///|
+/// Inspect planned windows; failures are JSON objects.
+pub fn moontile_inspect(source : String) -> String {
+  match @moontile.inspect_grid_json(source) {
+    Ok(output) => output
+    Err(message) => Json::object({ "error": message.to_json() }).stringify()
+  }
+}

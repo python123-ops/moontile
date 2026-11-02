@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, mkdtempSync, writeFileSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
-import {moontile_process, moontile_plan} from '../_build/site/moontile.mjs';
+import {moontile_process, moontile_plan, moontile_inspect} from '../_build/site/moontile.mjs';
 const source = readFileSync(new URL('../examples/input.json', import.meta.url), 'utf8');
 const browser = JSON.parse(moontile_process(source));
 const moon = process.platform === 'win32' ? 'moon.exe' : 'moon';
@@ -108,3 +110,54 @@ for (const frame of ['0', '-1', '1.5', '2147483648', 'not-a-frame']) {
   assert.match(bad.stderr, /frame must/);
 }
 console.log('Browser and native JSON outputs agree.');
+
+const completeInspection = JSON.parse(moontile_inspect(completeSource));
+assert.equal(completeInspection.complete, true);
+assert.equal(completeInspection.expected_tiles, 2);
+const incompleteInspection = JSON.parse(moontile_inspect(JSON.stringify(missingTile)));
+assert.equal(incompleteInspection.complete, false);
+assert.deepEqual(incompleteInspection.missing_ids, [1]);
+const nativeInspection = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/complete-input.json','--inspect-grid'], {encoding:'utf8'});
+assert.equal(nativeInspection.status, 0, nativeInspection.stderr);
+assert.deepEqual(JSON.parse(nativeInspection.stdout), completeInspection);
+assert.match(JSON.parse(moontile_inspect(source)).error, /tile_plan is required/);
+for (const limit of ['-1','10001','1.5','no']) {
+  const bad = spawnSync(moon, ['run','cmd/main','--target','native','--','examples/complete-input.json','--inspect-grid',limit], {encoding:'utf8'});
+  assert.notEqual(bad.status, 0);
+  assert.equal(bad.stdout, '');
+  assert.match(bad.stderr, /max_reported/);
+}
+
+const brokenGrid = JSON.parse(completeSource);
+brokenGrid.tiles.pop();
+brokenGrid.tiles[0].tile.width--;
+brokenGrid.tiles[0].detections = [];
+brokenGrid.tiles.push({tile:{id:7,x:0,y:0,width:1,height:1},detections:[]});
+const tempDir = mkdtempSync(join(tmpdir(), 'moontile-inspect-'));
+try {
+  const filename = join(tempDir, 'input.json');
+  writeFileSync(filename, JSON.stringify(brokenGrid));
+  const expected = JSON.parse(moontile_inspect(JSON.stringify(brokenGrid)));
+  assert.deepEqual([expected.missing_count,expected.mismatched_count,expected.unexpected_count], [1,1,1]);
+  assert.deepEqual([expected.missing_ids,expected.mismatched_ids,expected.unexpected_ids], [[1],[0],[7]]);
+  for (const limit of ['0','1','100']) {
+    const actual = spawnSync(moon, ['run','cmd/main','--target','native','--',filename,'--inspect-grid',limit], {encoding:'utf8'});
+    assert.equal(actual.status, 0, actual.stderr);
+    const report = JSON.parse(actual.stdout);
+    assert.deepEqual([report.missing_count,report.mismatched_count,report.unexpected_count], [1,1,1]);
+    assert.deepEqual(report.missing_ids, limit === '0' ? [] : [1]);
+    if (limit !== '0') assert.deepEqual(report, expected);
+  }
+  const duplicate = JSON.parse(completeSource);
+  duplicate.tiles.push(duplicate.tiles[0]);
+  writeFileSync(filename, JSON.stringify(duplicate));
+  const invalid = spawnSync(moon, ['run','cmd/main','--target','native','--',filename,'--inspect-grid'], {encoding:'utf8'});
+  assert.notEqual(invalid.status, 0);
+  assert.equal(invalid.stdout, '');
+  assert.ok(JSON.parse(moontile_inspect(JSON.stringify(duplicate))).error);
+  const mixed = JSON.parse(completeSource);
+  mixed.tiles[1].detections[0].image_id = 2;
+  const mixedReport = JSON.parse(moontile_inspect(JSON.stringify(mixed)));
+  assert.equal(mixedReport.mixed_images, true);
+  assert.equal(mixedReport.complete, false);
+} finally { rmSync(tempDir, {recursive:true,force:true}); }

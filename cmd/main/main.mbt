@@ -27,11 +27,15 @@ async fn main {
     return
   }
   if args.length() != 2 &&
-    !(args.length() == 3 && args[2] == "--plan") &&
+    !(args.length() == 3 && (args[2] == "--plan" || args[2] == "--inspect-grid")) &&
     !(args.length() == 4 &&
-    (args[2] == "--coco-map" || args[2] == "--mbmot-frame")) {
+    (
+      args[2] == "--coco-map" ||
+      args[2] == "--mbmot-frame" ||
+      args[2] == "--inspect-grid"
+    )) {
     @stdio.stderr.write(
-      "usage: moontile INPUT.json [--plan | --coco-map MAPPING.json | --mbmot-frame FRAME] | moontile --mbmot-stream | moontile --trace-stream\n",
+      "usage: moontile INPUT.json [--plan | --inspect-grid [LIMIT] | --coco-map MAPPING.json | --mbmot-frame FRAME] | moontile --mbmot-stream | moontile --trace-stream\n",
     )
     exit_process(2)
     return
@@ -43,7 +47,20 @@ async fn main {
       return
     }
   }
-  let result = if args.length() == 3 {
+  let result = if args.length() >= 3 && args[2] == "--inspect-grid" {
+    let limit = if args.length() == 4 {
+      @string.parse_int(args[3], base=10) catch {
+        _ => {
+          @stdio.stderr.write("max_reported must be an integer in [0,10000]\n")
+          exit_process(2)
+          return
+        }
+      }
+    } else {
+      100
+    }
+    @moontile.inspect_grid_json(content, max_reported=limit)
+  } else if args.length() == 3 {
     @moontile.plan_json(content)
   } else if args.length() == 4 && args[2] == "--coco-map" {
     let mapping = @fs.read_file(args[3]).text() catch {
