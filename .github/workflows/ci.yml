@@ -36,6 +36,10 @@ jobs:
           bench=_build/native/debug/build/validation/batch_bench/batch_bench.exe
           if [ ! -x "$bench" ]; then bench=_build/native/debug/build/validation/batch_bench/batch_bench; fi
           "$bench" --real validation/scale/predictions.json
+          moon build validation/grid_inspect --target native
+          inspect=_build/native/debug/build/validation/grid_inspect/grid_inspect.exe
+          if [ ! -x "$inspect" ]; then inspect=_build/native/debug/build/validation/grid_inspect/grid_inspect; fi
+          "$inspect" validation/scale/predictions.json
       - uses: actions/checkout@v4
         with:
           repository: python123-ops/mbmot

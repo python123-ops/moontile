@@ -27,12 +27,17 @@ test "merged detection feeds tracking and evaluation" {
   ])
   .unwrap()
   assert_true(accumulator.finish_grid(grid) is Err(_))
+  let inspection = accumulator.inspect_grid(grid, max_reported=2).unwrap()
+  assert_eq(inspection.mismatched_count, 1)
+  assert_eq(inspection.mismatched_ids, [1])
+  assert_true(!inspection.is_complete())
   accumulator
   .replace_tiles([
     { tile: grid.get(1).unwrap(), detections: [], transform: None, },
     { tile, detections: [d], transform: None, },
   ])
   .unwrap()
+  assert_true(accumulator.inspect_grid(grid).unwrap().is_complete())
   let result = accumulator.finish_grid(grid).unwrap()
   let track_input = to_tracker(result.merged.kept[0])
   let tracker = @mbmot.Tracker::new(@mbmot.TrackerConfig::default())

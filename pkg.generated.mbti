@@ -68,6 +68,19 @@ pub fn Detection::to_json(Self) -> Json
 type DetectionInput derive(@json.FromJson)
 pub fn DetectionInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 
+pub(all) struct GridInspection {
+  expected_tiles : Int
+  received_tiles : Int
+  missing_count : Int
+  mismatched_count : Int
+  unexpected_count : Int
+  missing_ids : Array[Int]
+  mismatched_ids : Array[Int]
+  unexpected_ids : Array[Int]
+  mixed_images : Bool
+}
+pub fn GridInspection::is_complete(Self) -> Bool
+
 type InputCenterBox derive(@json.FromJson)
 pub fn InputCenterBox::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 
@@ -157,6 +170,7 @@ pub fn TileAccumulator::add_tiles(Self, Array[TilePredictions]) -> Result[Unit, 
 pub fn TileAccumulator::detection_count(Self) -> Int
 pub fn TileAccumulator::finish(Self) -> Result[PipelineResult, String]
 pub fn TileAccumulator::finish_grid(Self, TileGrid) -> Result[PipelineResult, String]
+pub fn TileAccumulator::inspect_grid(Self, TileGrid, max_reported? : Int) -> Result[GridInspection, String]
 pub fn TileAccumulator::new(Int, Int, MergeConfig) -> Result[Self, String]
 pub fn TileAccumulator::remove_tile(Self, Int) -> Result[Unit, String]
 pub fn TileAccumulator::replace_tile(Self, TilePredictions) -> Result[Unit, String]

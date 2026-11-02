@@ -76,6 +76,7 @@ MoonBit 调用方可以使用类型化的 `process_tiles(image_width, image_heig
 
 需要确认整个规划都已接收时，可调用 `TileAccumulator::finish_grid(grid)`。它要求网格与累积器图像尺寸相同，逐一核对每个规划切片的编号、位置和尺寸，并要求非空检测属于同一 `image_id`。没有检测的切片也必须加入空预测组；失败不会改变累积器，可以补齐后重试。窗口可乱序加入，同分框仍按加入顺序处理。该检查确认调用方提交了对应窗口，不能验证调用方实际运行了检测器；空预测组不携带可校验的图像 ID。普通 `finish()` 仍允许只处理部分窗口。
 
+调用 `TileAccumulator::inspect_grid(grid, max_reported=100)` 可在合并前获取 `GridInspection`：其中包含规划与已接收窗口数、缺失窗口数、位置或尺寸不匹配数、多余窗口数、各类问题的编号样本，以及检测是否混入多个图像 ID。`is_complete()` 判断是否满足 `finish_grid` 的窗口与图像规则。编号样本按升序返回各类最小 ID，默认每类最多 100 个；`max_reported` 可设为 0–10,000，设置为 0 时仍返回完整计数。巡检不修改累积器或执行合并，样本空间最多随该上限增长；它仍需扫描规划窗口、已接收窗口及检测。空预测窗口不带图像 ID，无法据此核实其归属。
 已接收的窗口需要修正时，`replace_tile(group)` 用相同窗口 ID 原子替换整组预测；新窗口、检测、变换和 ID 都先通过校验，失败时保留旧数据。新检测可以复用被替换窗口自己的检测 ID，但不能与其他窗口冲突。成功后新检测排在其余已接收检测之后，因此相同分数的框可能改变保留顺序；先前 `finish()` 快照保持不变。`remove_tile(id)` 移除已接收窗口并释放其检测 ID，可用于删除错误编号后重新添加；未知窗口 ID 返回错误。两种操作都需遍历已接收检测并暂存其余检测，时间和临时空间随检测数量增长。替换后如需确认仍满足规划，应再次调用 `finish_grid`。
 需要同时重试多个窗口时，`replace_tiles(groups)` 在提交前校验整批窗口、变换和检测 ID；任一项无效时整个累积器保持原样。被替换窗口之间可以交换检测 ID，但不能与未替换窗口冲突；空批次有效。成功后未替换的检测保持原顺序，新检测按批次顺序追加，因此同分框的保留结果可能改变。一次批量操作扫描已有检测并暂存替换结果，仍需随检测数量增长的内存；逐次调用 `replace_tile` 会重复扫描。
 
@@ -180,6 +181,7 @@ python validation/scale/quality.py --infer --images <image-cache> --weights <yol
 CI 使用 Python 标准库回放全部 200 张图的原始切片预测，检查坐标和 NMS 结果数量；八组指标和外部参考评估需要上述完整 Python 环境。
 
 使用同一批 200 张真实图片预测验证 `tile_plan`：200 个完整切片组的输出与原流程一致，分别人为删除一片或修改一片尺寸后，200 个漏片输入和 200 个错误窗口输入均被拒绝，标准输出为空。完整记录见 [grid-completeness-results.json](validation/scale/grid-completeness-results.json)；错误输入是为验证边界人为构造的。
+针对同一批 200 张真实图片的预测，还对每张图人为注入一个漏片、一个尺寸错误和一个多余空窗口，检查 `inspect_grid` 能定位三类问题；修正后与相同输入顺序下的批处理逐项比较还原框、保留框和溯源记录，200 张均一致。验证程序为 [validation/grid_inspect/main.mbt](validation/grid_inspect/main.mbt)，结果与哈希见 [grid-inspection-results.json](validation/scale/grid-inspection-results.json)；真实框来自已有预测，窗口错误为人为注入。该对照也在 CI 运行。
 另取上述真实预测中贴住切片边缘的 665 个框，将贴边坐标人为向切片外延伸 1 像素，覆盖 160 张图的 459 个切片；启用 `clip_local` 后，全部还原框、合并框和抑制记录与原始预测一致。这是基于真实预测构造的边界扰动，不是检测器直接输出的越界框。[扰动验证结果](validation/scale/clipping-boundary-results.json)记录各边界数量与输入哈希；CI 同样运行该回放。
 `validation/real_tiled_video.py` 补充真实切片视频链路：读取 OpenCV 的 [vtest.avi](https://github.com/opencv/opencv/blob/4.x/samples/data/vtest.avi) 前 20 帧（768×576、10 FPS），每帧切成 6 个 384×384 窗口，重叠 128 像素，在每个窗口运行 OpenCV HOG 行人检测。MoonTile 对 143 个局部预测执行坐标还原和 IoU 0.4 的 NMS，保留 54 个，再逐帧送入 MBMOT；跟踪输出包含 20 帧，5 个轨迹 ID 在多帧出现。HOG 的分数是 SVM margin 的 sigmoid 变换，并非经过校准的概率；视频没有跟踪标注，轨迹数量和 ID 延续不能说明跟踪准确率，被抑制数量也不等同于人工确认的重复框数量。
 

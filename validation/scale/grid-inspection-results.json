@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "images": 200,
+  "tiles": 1406,
+  "detections": 11657,
+  "repairs_verified": 200,
+  "outputs_identical": true,
+  "fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "binary_sha256": "7a3f457d66f889233153eac6e8b81c00d725fa69e66e09f55fd5b41e829c3f66",
+  "source_sha256_lf": "d757e7b7bd4bb9103abbab04e2ac0d995a374501a3eb3f79b9afd4d932f5b6ca",
+  "command": "moon build validation/grid_inspect --target native && <grid_inspect-native> validation/scale/predictions.json",
+  "scope": "Real COCO tile predictions; one missing tile, one undersized tile and one extra empty tile per image are synthetic error injections. Repaired output is compared with the same arrival-order baseline."
+}
