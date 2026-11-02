@@ -165,13 +165,15 @@ pub struct TileAccumulator {
   config : MergeConfig
   tile_windows : Map[Int, Tile]
   detection_ids : @set.Set[Int]
-  restored : Array[Detection]
+  mut restored : Array[Detection]
 }
 pub fn TileAccumulator::add_tile(Self, TilePredictions) -> Result[Unit, String]
 pub fn TileAccumulator::add_tiles(Self, Array[TilePredictions]) -> Result[Unit, String]
 pub fn TileAccumulator::detection_count(Self) -> Int
 pub fn TileAccumulator::finish(Self) -> Result[PipelineResult, String]
 pub fn TileAccumulator::finish_grid(Self, TileGrid) -> Result[PipelineResult, String]
+pub fn TileAccumulator::finish_grid_take(Self, TileGrid) -> Result[PipelineResult, String]
+pub fn TileAccumulator::finish_take(Self) -> Result[PipelineResult, String]
 pub fn TileAccumulator::inspect_grid(Self, TileGrid, max_reported? : Int) -> Result[GridInspection, String]
 pub fn TileAccumulator::new(Int, Int, MergeConfig) -> Result[Self, String]
 pub fn TileAccumulator::remove_tile(Self, Int) -> Result[Unit, String]

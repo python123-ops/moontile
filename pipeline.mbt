@@ -135,8 +135,8 @@ fn process_data(source : String) -> Result[PipelineResult, String] {
     Err(message) => return Err(message)
   }
   match grid {
-    Some(value) => accumulator.finish_grid(value)
-    None => accumulator.finish()
+    Some(value) => accumulator.finish_grid_take(value)
+    None => accumulator.finish_take()
   }
 }
 
@@ -167,8 +167,8 @@ fn process_with_grid(
     Err(message) => return Err(message)
   }
   match grid {
-    Some(value) => accumulator.finish_grid(value)
-    None => accumulator.finish()
+    Some(value) => accumulator.finish_grid_take(value)
+    None => accumulator.finish_take()
   }
 }
 

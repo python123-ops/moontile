@@ -173,7 +173,19 @@ async fn main {
       ordered,
       config,
     ).unwrap()
-    check_results(acc.finish_grid(grid).unwrap(), expected)
+    let snapshot = acc.finish_grid(grid).unwrap()
+    check_results(snapshot, expected)
+    let taken = acc.finish_grid_take(grid).unwrap()
+    check_results(taken, snapshot)
+    if acc.tile_count() != 0 || acc.detection_count() != 0 {
+      abort("take did not reset accumulator")
+    }
+    acc.add_tiles(ordered).unwrap()
+    check_results(acc.finish_take().unwrap(), expected)
+    check_results(taken, expected)
+    if acc.tile_count() != 0 || acc.detection_count() != 0 {
+      abort("reused accumulator did not reset")
+    }
     tiles += groups.length()
   }
   println(
@@ -183,6 +195,7 @@ async fn main {
       "detections": detections.to_json(),
       "repairs_verified": fixture.requests.length().to_json(),
       "outputs_identical": true.to_json(),
+      "take_and_reuse_verified": fixture.requests.length().to_json(),
     }).stringify(),
   )
 }

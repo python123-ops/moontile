@@ -253,3 +253,73 @@ test "batch addition rolls back all tiles and permits retry" {
     )
   }
 }
+
+///|
+test "take transfers results and allows safe accumulator reuse" {
+  let grid = @moontile.TileGrid::new(100, 60, 60, 60, 20, 0).unwrap()
+  let first : @moontile.TilePredictions = {
+    tile: grid.get(0).unwrap(),
+    transform: None,
+    detections: [
+      {
+        id: 1,
+        image_id: 1,
+        tile_id: 0,
+        class_id: 0,
+        score: 0.9,
+        box: { x1: 45.0, y1: 10.0, x2: 55.0, y2: 20.0, },
+      },
+    ],
+  }
+  let second : @moontile.TilePredictions = {
+    tile: grid.get(1).unwrap(),
+    transform: None,
+    detections: [
+      {
+        ..first.detections[0],
+        id: 2,
+        tile_id: 1,
+        box: { x1: 5.0, y1: 10.0, x2: 15.0, y2: 20.0, },
+      },
+    ],
+  }
+  for strategy in [@moontile.MergeStrategy::Nms, GreedyNmm] {
+    let acc = @moontile.TileAccumulator::new(100, 60, {
+      threshold: 0.5,
+      metric: IoU,
+      class_agnostic: false,
+      strategy,
+    }).unwrap()
+    assert_true(acc.add_tile(first) is Ok(_))
+    let snapshot = acc.finish().unwrap()
+    assert_true(acc.finish_grid_take(grid) is Err(_))
+    assert_eq(acc.tile_count(), 1)
+    assert_eq(acc.detection_count(), 1)
+    assert_true(acc.add_tile(second) is Ok(_))
+    let expected = acc.finish_grid(grid).unwrap()
+    let taken = acc.finish_grid_take(grid).unwrap()
+    assert_eq(taken.restored.length(), expected.restored.length())
+    assert_eq(taken.merged.kept[0].id, expected.merged.kept[0].id)
+    assert_eq(
+      taken.merged.suppressed[0].kept_id,
+      expected.merged.suppressed[0].kept_id,
+    )
+    assert_eq(
+      taken.merged.suppressed[0].suppressed_id,
+      expected.merged.suppressed[0].suppressed_id,
+    )
+    assert_eq(acc.tile_count(), 0)
+    assert_eq(acc.detection_count(), 0)
+    assert_true(acc.add_tile(first) is Ok(_))
+    assert_eq(snapshot.restored.length(), 1)
+    assert_eq(taken.restored.length(), 2)
+    taken.restored.clear()
+    assert_eq(acc.detection_count(), 1)
+    let partial = acc.finish_take().unwrap()
+    assert_eq(partial.restored[0].id, 1)
+    assert_eq(acc.tile_count(), 0)
+    assert_eq(acc.finish_take().unwrap().restored.length(), 0)
+    assert_true(acc.add_tile(first) is Ok(_))
+    assert_eq(acc.detection_count(), 1)
+  }
+}

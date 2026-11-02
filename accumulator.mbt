@@ -7,7 +7,7 @@ pub struct TileAccumulator {
   config : MergeConfig
   tile_windows : Map[Int, Tile]
   detection_ids : Set[Int]
-  restored : Array[Detection]
+  mut restored : Array[Detection]
 }
 
 ///|
@@ -246,6 +246,23 @@ pub fn TileAccumulator::finish(
 }
 
 ///|
+/// Merge and transfer the restored array to the result, clearing accepted tiles
+/// and IDs only on success. The accumulator may then be reused. Previously
+/// returned snapshots and the transferred result remain independent of reuse.
+pub fn TileAccumulator::finish_take(
+  self : TileAccumulator,
+) -> Result[PipelineResult, String] {
+  let result = match merge_restored(self.restored, self.config) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
+  self.restored = []
+  self.tile_windows.clear()
+  self.detection_ids.clear()
+  Ok(result)
+}
+
+///|
 /// Merge only after every window in the supplied grid was added exactly once
 /// with its planned geometry. All detections must share one image ID.
 /// Empty prediction tiles count as received; their image cannot be verified.
@@ -254,6 +271,30 @@ pub fn TileAccumulator::finish_grid(
   self : TileAccumulator,
   grid : TileGrid,
 ) -> Result[PipelineResult, String] {
+  match self.validate_grid(grid) {
+    Ok(_) => self.finish()
+    Err(message) => Err(message)
+  }
+}
+
+///|
+/// Verify the grid, then merge and transfer ownership as in finish_take.
+/// A validation or merge error leaves the accumulator unchanged.
+pub fn TileAccumulator::finish_grid_take(
+  self : TileAccumulator,
+  grid : TileGrid,
+) -> Result[PipelineResult, String] {
+  match self.validate_grid(grid) {
+    Ok(_) => self.finish_take()
+    Err(message) => Err(message)
+  }
+}
+
+///|
+fn TileAccumulator::validate_grid(
+  self : TileAccumulator,
+  grid : TileGrid,
+) -> Result[Unit, String] {
   if self.image_width != grid.width || self.image_height != grid.height {
     return Err("grid and accumulator image dimensions differ")
   }
@@ -279,7 +320,7 @@ pub fn TileAccumulator::finish_grid(
       return Err("tile geometry differs from grid at \{id}")
     }
   }
-  self.finish()
+  Ok(())
 }
 
 ///|
