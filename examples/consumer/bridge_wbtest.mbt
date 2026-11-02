@@ -10,12 +10,12 @@ test "merged detection feeds tracking and evaluation" {
     score: 0.95,
     box: @moontile.Box::from_xywh(45.0, 10.0, 13.0, 20.0).unwrap(),
   }
-  let accumulator = @moontile.TileAccumulator::new(100, 60, {
-    threshold: 0.5,
-    metric: IoU,
-    class_agnostic: false,
-    strategy: Nms,
-  }).unwrap()
+  let accumulator = @moontile.TileAccumulator::new_limited(
+    100,
+    60,
+    { threshold: 0.5, metric: IoU, class_agnostic: false, strategy: Nms, },
+    { max_tiles: 2, max_detections: 1, },
+  ).unwrap()
   accumulator
   .add_tiles([
     { tile, detections: [d], transform: None, },

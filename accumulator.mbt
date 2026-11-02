@@ -1,10 +1,18 @@
 ///|
+/// Maximum accepted windows and detections. Both limits may be zero.
+pub(all) struct AccumulatorLimits {
+  max_tiles : Int
+  max_detections : Int
+}
+
+///|
 /// Accumulate validated tile predictions before a global, score-ranked merge.
 /// A failed add leaves all previously accepted tiles and detections unchanged.
 pub struct TileAccumulator {
   image_width : Int
   image_height : Int
   config : MergeConfig
+  limits : AccumulatorLimits?
   tile_windows : Map[Int, Tile]
   detection_ids : Set[Int]
   mut restored : Array[Detection]
@@ -16,6 +24,32 @@ pub fn TileAccumulator::new(
   image_width : Int,
   image_height : Int,
   config : MergeConfig,
+) -> Result[TileAccumulator, String] {
+  new_accumulator(image_width, image_height, config, None)
+}
+
+///|
+/// Create an accumulator that rejects batches exceeding either limit.
+/// Limits apply to accepted entries, including empty tile groups; they do not
+/// bound the caller's input, merging workspace, JSON parser, or total memory.
+pub fn TileAccumulator::new_limited(
+  image_width : Int,
+  image_height : Int,
+  config : MergeConfig,
+  limits : AccumulatorLimits,
+) -> Result[TileAccumulator, String] {
+  if limits.max_tiles < 0 || limits.max_detections < 0 {
+    return Err("accumulator limits must be nonnegative")
+  }
+  new_accumulator(image_width, image_height, config, Some(limits))
+}
+
+///|
+fn new_accumulator(
+  image_width : Int,
+  image_height : Int,
+  config : MergeConfig,
+  limits : AccumulatorLimits?,
 ) -> Result[TileAccumulator, String] {
   if image_width <= 0 || image_height <= 0 {
     return Err("invalid image dimensions")
@@ -29,6 +63,7 @@ pub fn TileAccumulator::new(
     image_width,
     image_height,
     config,
+    limits,
     tile_windows: Map([]),
     detection_ids: Set([]),
     restored: [],
@@ -65,6 +100,21 @@ pub fn TileAccumulator::add_tiles(
   self : TileAccumulator,
   groups : Array[TilePredictions],
 ) -> Result[Unit, String] {
+  match self.limits {
+    Some(limits) => {
+      if groups.length() > limits.max_tiles - self.tile_count() {
+        return Err("tile limit exceeded")
+      }
+      let mut available = limits.max_detections - self.detection_count()
+      for group in groups {
+        if group.detections.length() > available {
+          return Err("detection limit exceeded")
+        }
+        available -= group.detections.length()
+      }
+    }
+    None => ()
+  }
   let pending : Array[Detection] = []
   let pending_ids : Set[Int] = Set([])
   let pending_tiles : Set[Int] = Set([])
@@ -195,6 +245,23 @@ pub fn TileAccumulator::replace_tiles(
     if !replacement_tiles.add_and_check(group.tile.id) {
       return Err("duplicate tile id")
     }
+  }
+  match self.limits {
+    Some(limits) => {
+      let mut available = limits.max_detections
+      for record in self.restored {
+        if !replacement_tiles.contains(record.tile_id) {
+          available -= 1
+        }
+      }
+      for group in groups {
+        if group.detections.length() > available {
+          return Err("detection limit exceeded")
+        }
+        available -= group.detections.length()
+      }
+    }
+    None => ()
   }
   let staged = match
     TileAccumulator::new(self.image_width, self.image_height, self.config) {

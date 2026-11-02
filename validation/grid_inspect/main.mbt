@@ -111,6 +111,7 @@ async fn main {
       config,
     ).unwrap()
     let groups : Array[@moontile.TilePredictions] = []
+    let mut image_detections = 0
     for item in request.tiles {
       groups.push({
         tile: item.tile,
@@ -118,6 +119,34 @@ async fn main {
         transform: None,
       })
       detections += item.detections.length()
+      image_detections += item.detections.length()
+    }
+    let bounded = @moontile.TileAccumulator::new_limited(
+      request.image_width,
+      request.image_height,
+      config,
+      { max_tiles: groups.length(), max_detections: image_detections, },
+    ).unwrap()
+    bounded.add_tiles(groups).unwrap()
+    let expected_bounded = @moontile.process_tiles(
+      request.image_width,
+      request.image_height,
+      groups,
+      config,
+    ).unwrap()
+    check_results(bounded.finish_grid_take(grid).unwrap(), expected_bounded)
+    if image_detections > 0 {
+      let too_small = @moontile.TileAccumulator::new_limited(
+        request.image_width,
+        request.image_height,
+        config,
+        { max_tiles: groups.length(), max_detections: image_detections - 1, },
+      ).unwrap()
+      if too_small.add_tiles(groups) is Ok(_) ||
+        too_small.tile_count() != 0 ||
+        too_small.detection_count() != 0 {
+        abort("bounded batch was not rejected atomically")
+      }
     }
     if groups[0].tile.id != 0 ||
       groups[1].tile.id != 1 ||
@@ -196,6 +225,7 @@ async fn main {
       "repairs_verified": fixture.requests.length().to_json(),
       "outputs_identical": true.to_json(),
       "take_and_reuse_verified": fixture.requests.length().to_json(),
+      "bounded_inputs_verified": fixture.requests.length().to_json(),
     }).stringify(),
   )
 }

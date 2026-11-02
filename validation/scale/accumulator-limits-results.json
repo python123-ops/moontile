@@ -1,0 +1,15 @@
+{
+  "images": 200,
+  "tiles": 1406,
+  "detections": 11657,
+  "repairs_verified": 200,
+  "outputs_identical": true,
+  "take_and_reuse_verified": 200,
+  "bounded_inputs_verified": 200,
+  "status": "passed",
+  "fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "binary_sha256": "0711e062280c034bdb7ba1ed787255e5f367d9da3db90f3e4499a99d3eff24ad",
+  "source_sha256_lf": "21e7610117e23ed84044c2bd4459e1b5308a5a60caf9df9b4f94ab1457d9956f",
+  "command": "moon build validation/grid_inspect --target native && <grid_inspect-native> validation/scale/predictions.json",
+  "scope": "Real COCO crop predictions. Exact limits are accepted and compared against batch output; a one-detection-short limit rejects the batch atomically. Window errors elsewhere in this replay are synthetic."
+}
