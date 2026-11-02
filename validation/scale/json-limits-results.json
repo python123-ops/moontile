@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "images": 200,
+  "exact_limit_inputs_verified": 200,
+  "tile_limit_inputs_rejected": 200,
+  "detection_limit_inputs_rejected": 200,
+  "tiles": 1406,
+  "detections": 11657,
+  "fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "binary_sha256": "01119bd460575bdfd8b7fb19b3828f41e974f61b67e508dc06ed286aec328849",
+  "script_sha256_lf": "039b4a1a4d9d153c236dca1a79aeacd45deebcc44a4c1faae233371bdc1cd082",
+  "command": "python validation/replay_tiled_coco.py --binary <moontile-cli> --raw validation/scale/predictions.json --report validation/scale/results.json --check-limits --limits-output validation/scale/json-limits-results.json",
+  "scope": "Real crop predictions; limits are changed for boundary checks. No input-size or peak-memory bound is measured."
+}

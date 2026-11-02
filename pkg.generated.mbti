@@ -94,6 +94,9 @@ pub fn InputCenterBox::from_json(Json, @json.JsonPath) -> Self raise @json.JsonD
 type InputXywh derive(@json.FromJson)
 pub fn InputXywh::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
 
+type LimitsInput derive(@json.FromJson)
+pub fn LimitsInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+
 pub(all) struct MergeConfig {
   threshold : Double
   metric : Overlap

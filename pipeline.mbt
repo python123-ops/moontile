@@ -24,6 +24,15 @@ struct TilePlanInput {
 pub extend TilePlanInput with @json.FromJson::{from_json}
 
 ///|
+struct LimitsInput {
+  max_tiles : Int
+  max_detections : Int
+} derive(FromJson)
+
+///|
+pub extend LimitsInput with @json.FromJson::{from_json}
+
+///|
 struct PipelineInput {
   image_width : Int
   image_height : Int
@@ -32,6 +41,7 @@ struct PipelineInput {
   class_agnostic : Bool
   strategy : String?
   tile_plan : TilePlanInput?
+  limits : LimitsInput?
   tiles : Array[TileInput]
 } derive(FromJson)
 
@@ -90,6 +100,25 @@ fn prepare_data(
     Some("greedy_nmm") => GreedyNmm
     Some(_) => return Err("strategy must be nms or greedy_nmm")
   }
+  let limits : AccumulatorLimits? = match input.limits {
+    None => None
+    Some(value) => {
+      if value.max_tiles < 0 || value.max_detections < 0 {
+        return Err("accumulator limits must be nonnegative")
+      }
+      if input.tiles.length() > value.max_tiles {
+        return Err("tile limit exceeded")
+      }
+      let mut available = value.max_detections
+      for group in input.tiles {
+        if group.detections.length() > available {
+          return Err("detection limit exceeded")
+        }
+        available -= group.detections.length()
+      }
+      Some({ max_tiles: value.max_tiles, max_detections: value.max_detections, })
+    }
+  }
   let tiles : Array[TilePredictions] = []
   for group in input.tiles {
     match decode_tile_predictions(group) {
@@ -116,12 +145,18 @@ fn prepare_data(
     }
   }
   let accumulator = match
-    prepare_accumulator(input.image_width, input.image_height, tiles, {
-      threshold: input.threshold,
-      metric,
-      class_agnostic: input.class_agnostic,
-      strategy,
-    }) {
+    prepare_accumulator(
+      input.image_width,
+      input.image_height,
+      tiles,
+      {
+        threshold: input.threshold,
+        metric,
+        class_agnostic: input.class_agnostic,
+        strategy,
+      },
+      limits,
+    ) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
@@ -162,7 +197,7 @@ fn process_with_grid(
   grid : TileGrid?,
 ) -> Result[PipelineResult, String] {
   let accumulator = match
-    prepare_accumulator(image_width, image_height, tiles, config) {
+    prepare_accumulator(image_width, image_height, tiles, config, None) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
@@ -178,9 +213,14 @@ fn prepare_accumulator(
   image_height : Int,
   tiles : Array[TilePredictions],
   config : MergeConfig,
+  limits : AccumulatorLimits?,
 ) -> Result[TileAccumulator, String] {
-  let accumulator = match
-    TileAccumulator::new(image_width, image_height, config) {
+  let created = match limits {
+    None => TileAccumulator::new(image_width, image_height, config)
+    Some(value) =>
+      TileAccumulator::new_limited(image_width, image_height, config, value)
+  }
+  let accumulator = match created {
     Ok(value) => value
     Err(message) => return Err(message)
   }

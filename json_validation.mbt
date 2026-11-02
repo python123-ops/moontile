@@ -48,6 +48,17 @@ fn pipeline_integers_match(json : Json, input : PipelineInput) -> Bool {
     }
     None => ()
   }
+  match (json_field(json, "limits"), input.limits) {
+    (None, None) => ()
+    (Some(value), Some(limits)) =>
+      if !integer_fields_match(value, [
+          ("max_tiles", limits.max_tiles),
+          ("max_detections", limits.max_detections),
+        ]) {
+        return false
+      }
+    _ => return false
+  }
   let groups = match json_field(json, "tiles") {
     Some(Array(values)) => values
     _ => return false

@@ -21,9 +21,13 @@ def main():
     p.add_argument('--boundary-output', type=Path)
     p.add_argument('--inspect-grid', action='store_true')
     p.add_argument('--inspection-output', type=Path)
+    p.add_argument('--check-limits', action='store_true')
+    p.add_argument('--limits-output', type=Path)
     args = p.parse_args()
     if (args.inspect_grid and not args.require_plan) or (args.inspection_output and not args.inspect_grid):
         p.error('--inspect-grid requires --require-plan; --inspection-output requires --inspect-grid')
+    if args.limits_output and not args.check_limits:
+        p.error('--limits-output requires --check-limits')
     raw_path = args.raw
     raw = json.loads(raw_path.read_text(encoding='utf8'))
     report = json.loads(args.report.read_text(encoding='utf8'))
@@ -34,6 +38,7 @@ def main():
     boundary_images = boundary_groups = boundary_boxes = 0
     checked_plans = dropped_plans = wrong_geometry = 0
     inspected = injected = 0
+    limited_complete = limited_tiles = limited_detections = 0
     with tempfile.TemporaryDirectory(prefix='moontile-tiled-replay-') as tmp:
         path = Path(tmp) / 'input.json'
         for request in raw['requests']:
@@ -48,6 +53,28 @@ def main():
                                                           'x2': b['x2'] + tile['x'], 'y2': b['y2'] + tile['y']}})
             if result['restored'] != expected:
                 raise AssertionError('coordinate or provenance mismatch')
+            if args.check_limits:
+                bounded = copy.deepcopy(request)
+                total = len(expected)
+                bounded['limits'] = {'max_tiles': len(request['tiles']), 'max_detections': total}
+                path.write_text(json.dumps(bounded, separators=(',', ':')), encoding='utf8')
+                actual = json.loads(subprocess.check_output([str(args.binary.resolve()), str(path)], encoding='utf8'))
+                if actual != result:
+                    raise AssertionError('bounded result differs')
+                limited_complete += 1
+                for name, key, error in [('tiles', 'max_tiles', 'tile limit exceeded'), ('detections', 'max_detections', 'detection limit exceeded')]:
+                    if bounded['limits'][key] == 0:
+                        continue
+                    bounded['limits'][key] -= 1
+                    path.write_text(json.dumps(bounded, separators=(',', ':')), encoding='utf8')
+                    bad = subprocess.run([str(args.binary.resolve()), str(path)], capture_output=True, encoding='utf8')
+                    if bad.returncode == 0 or bad.stdout or error not in bad.stderr:
+                        raise AssertionError('limit did not reject atomically: ' + name)
+                    bounded['limits'][key] += 1
+                    if name == 'tiles':
+                        limited_tiles += 1
+                    else:
+                        limited_detections += 1
             if args.require_plan:
                 inference = report['inference']
                 planned = copy.deepcopy(request)
@@ -138,6 +165,18 @@ def main():
         print('Checked {} complete plans, {} missing tiles and {} wrong geometries.'.format(checked_plans, dropped_plans, wrong_geometry))
     elif args.plan_output:
         raise ValueError('--plan-output requires --require-plan')
+    if args.check_limits:
+        limits_report = {'status': 'passed', 'images': len(raw['requests']), 'exact_limit_inputs_verified': limited_complete,
+                         'tile_limit_inputs_rejected': limited_tiles, 'detection_limit_inputs_rejected': limited_detections,
+                         'tiles': sum(len(r['tiles']) for r in raw['requests']), 'detections': counts[0],
+                         'fixture_sha256': hashlib.sha256(raw_path.read_bytes()).hexdigest(),
+                         'binary_sha256': hashlib.sha256(args.binary.read_bytes()).hexdigest(),
+                         'script_sha256_lf': hashlib.sha256(Path(__file__).read_bytes().replace(b'\r\n', b'\n')).hexdigest(),
+                         'command': 'python validation/replay_tiled_coco.py --binary <moontile-cli> --raw validation/scale/predictions.json --report validation/scale/results.json --check-limits --limits-output validation/scale/json-limits-results.json',
+                         'scope': 'Real crop predictions; limits are changed for boundary checks. No input-size or peak-memory bound is measured.'}
+        if args.limits_output:
+            args.limits_output.write_text(json.dumps(limits_report, indent=2) + '\n', encoding='utf8')
+        print('Checked {} exact limits, {} tile-limit and {} detection-limit rejections.'.format(limited_complete, limited_tiles, limited_detections))
     if args.inspect_grid:
         inspection_report = {'status': 'passed', 'images': len(raw['requests']), 'complete_inputs_verified': inspected,
                              'inputs_with_three_injected_errors_verified': injected, 'tiles': sum(len(r['tiles']) for r in raw['requests']),

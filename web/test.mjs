@@ -161,3 +161,24 @@ try {
   assert.equal(mixedReport.mixed_images, true);
   assert.equal(mixedReport.complete, false);
 } finally { rmSync(tempDir, {recursive:true,force:true}); }
+
+const limitedInput = JSON.parse(completeSource);
+limitedInput.limits = {max_tiles:limitedInput.tiles.length, max_detections:limitedInput.tiles.reduce((n, group) => n + group.detections.length, 0)};
+assert.deepEqual(JSON.parse(moontile_process(JSON.stringify(limitedInput))), completeBrowser);
+const limitedTemp = mkdtempSync(join(tmpdir(), 'moontile-limits-'));
+try {
+  const filename = join(limitedTemp, 'input.json');
+  for (const key of ['max_tiles', 'max_detections']) {
+    limitedInput.limits[key]--;
+    const text = JSON.stringify(limitedInput);
+    writeFileSync(filename, text);
+    const native = spawnSync(moon, ['run','cmd/main','--target','native','--',filename], {encoding:'utf8'});
+    assert.notEqual(native.status, 0);
+    assert.equal(native.stdout, '');
+    const error = key === 'max_tiles' ? /tile limit exceeded/ : /detection limit exceeded/;
+    assert.match(native.stderr, error);
+    assert.match(JSON.parse(moontile_process(text)).error, error);
+    assert.match(JSON.parse(moontile_inspect(text)).error, error);
+    limitedInput.limits[key]++;
+  }
+} finally { rmSync(limitedTemp, {recursive:true,force:true}); }
