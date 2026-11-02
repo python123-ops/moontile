@@ -142,6 +142,81 @@ fn TileAccumulator::stage_tile(
 }
 
 ///|
+/// Remove a previously accepted tile and its detections. Unknown IDs fail
+/// without changing state; removed detection IDs may be used again.
+pub fn TileAccumulator::remove_tile(
+  self : TileAccumulator,
+  tile_id : Int,
+) -> Result[Unit, String] {
+  if !self.tile_windows.contains(tile_id) {
+    return Err("unknown tile id")
+  }
+  let remaining : Array[Detection] = []
+  for record in self.restored {
+    if record.tile_id == tile_id {
+      self.detection_ids.remove(record.id)
+    } else {
+      remaining.push(record)
+    }
+  }
+  self.tile_windows.remove(tile_id)
+  self.restored.clear()
+  self.restored.append(remaining)
+  Ok(())
+}
+
+///|
+/// Atomically replace an accepted tile with the same ID. The replacement is
+/// validated before any state changes; its detection IDs may reuse those of the
+/// old tile, but must not conflict with another tile. Replacement detections
+/// follow all other accepted detections, affecting stable equal-score ordering.
+pub fn TileAccumulator::replace_tile(
+  self : TileAccumulator,
+  group : TilePredictions,
+) -> Result[Unit, String] {
+  let tile_id = group.tile.id
+  if !self.tile_windows.contains(tile_id) {
+    return Err("unknown tile id")
+  }
+  let staged = match
+    TileAccumulator::new(self.image_width, self.image_height, self.config) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
+  match staged.add_tile(group) {
+    Ok(_) => ()
+    Err(message) => return Err(message)
+  }
+  let old_ids : Set[Int] = Set([])
+  let remaining : Array[Detection] = []
+  for record in self.restored {
+    if record.tile_id == tile_id {
+      old_ids.add(record.id)
+    } else {
+      remaining.push(record)
+    }
+  }
+  for record in staged.restored {
+    if self.detection_ids.contains(record.id) && !old_ids.contains(record.id) {
+      return Err("duplicate detection id")
+    }
+  }
+  for record in self.restored {
+    if record.tile_id == tile_id {
+      self.detection_ids.remove(record.id)
+    }
+  }
+  self.tile_windows[tile_id] = group.tile
+  self.restored.clear()
+  self.restored.append(remaining)
+  for record in staged.restored {
+    self.detection_ids.add(record.id)
+    self.restored.push(record)
+  }
+  Ok(())
+}
+
+///|
 /// Merge all accepted detections and return an independent snapshot. Does not
 /// clear the accumulator; later additions are included in later snapshots.
 pub fn TileAccumulator::finish(

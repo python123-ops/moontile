@@ -158,6 +158,8 @@ pub fn TileAccumulator::detection_count(Self) -> Int
 pub fn TileAccumulator::finish(Self) -> Result[PipelineResult, String]
 pub fn TileAccumulator::finish_grid(Self, TileGrid) -> Result[PipelineResult, String]
 pub fn TileAccumulator::new(Int, Int, MergeConfig) -> Result[Self, String]
+pub fn TileAccumulator::remove_tile(Self, Int) -> Result[Unit, String]
+pub fn TileAccumulator::replace_tile(Self, TilePredictions) -> Result[Unit, String]
 pub fn TileAccumulator::reset(Self) -> Unit
 pub fn TileAccumulator::tile_count(Self) -> Int
 
