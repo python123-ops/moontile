@@ -81,6 +81,8 @@ MoonBit 调用方可以使用类型化的 `process_tiles(image_width, image_heig
 
 对 200 张真实图片的切片预测，逐项比较了快照、取出及复用后的结果；见[累积器取出验证结果](validation/scale/accumulator-take-results.json)。
 
+可用 `python validation/memory_scale/run.py` 复现累积器资源测试。一次 Windows native release 测量中，30 万个合成检测的进程峰值工作集中位数为：快照接口 92.84 MiB、取出接口 90.57 MiB；合并耗时中位数分别为 165.4 毫秒和 183.2 毫秒。每种方式先预热一次，再交替运行三次；峰值包含进程启动、构造累积器、合并与结果核对，合并计时单独记录。数据为 10 类完全重合的合成框，2 毫秒采样可能漏掉进程退出前的短暂峰值，不能作为真实业务容量或性能结论。[结果文件](validation/memory_scale/results.json)记录原始样本和哈希；CI 在 Linux 上运行 1 万框的小规模正确性与采样检查。
+
 调用 `TileAccumulator::inspect_grid(grid, max_reported=100)` 可在合并前获取 `GridInspection`：其中包含规划与已接收窗口数、缺失窗口数、位置或尺寸不匹配数、多余窗口数、各类问题的编号样本，以及检测是否混入多个图像 ID。`is_complete()` 判断是否满足 `finish_grid` 的窗口与图像规则。编号样本按升序返回各类最小 ID，默认每类最多 100 个；`max_reported` 可设为 0–10,000，设置为 0 时仍返回完整计数。巡检不修改累积器或执行合并，样本空间最多随该上限增长；它仍需扫描规划窗口、已接收窗口及检测。空预测窗口不带图像 ID，无法据此核实其归属。
 
 JSON 输入可调用 `inspect_grid_json(source, max_reported=100)`，或使用 CLI 的 `--inspect-grid [LIMIT]` 在合并前检查；输入必须包含 `tile_plan`，报告包含 `complete`、完整计数、各类编号样本和 `mixed_images`。样本上限默认 100，允许 0–10000；无效输入、重复窗口或非法检测直接报错，CLI 不输出部分报告。浏览器的“检查切片完整性”按钮使用同一接口和默认上限，规划生成的输入自带 `tile_plan`；修改输入后会清除旧检查结果。此入口读取并校验完整 JSON 和全部预测，内存仍随输入规模增长。

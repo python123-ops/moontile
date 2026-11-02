@@ -1,0 +1,163 @@
+{
+  "status": "passed",
+  "command": "python validation/memory_scale/run.py",
+  "counts": [
+    100000,
+    300000
+  ],
+  "repeat": 3,
+  "warmups_per_mode_and_count": 1,
+  "sample_interval_ms": 2,
+  "memory_method": "sampled Windows PeakWorkingSetSize",
+  "build": "native release",
+  "seed": null,
+  "platform": "Windows-10-10.0.26100-SP0",
+  "python": "3.8.7",
+  "toolchain": "moon 0.1.20260920 (914d7da 2026-09-20) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moon.exe\nmoonc v0.10.14+7d59c7ec9 (2026-09-18) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moonc.exe\nmoonrun 0.1.20260920 (914d7da 2026-09-20) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moonrun.exe\n\nFeature flags enabled: rr_moon_mod,rr_moon_pkg",
+  "binary_sha256": "37cfaaeee45bd241382afda79613b8f785965940908aea3e8e25bdbd1c7e0a34",
+  "sources_sha256_lf": {
+    "accumulator.mbt": "8d8029f4662cadb9482f87f5fcb575ac07f63f2ea5fd9974a3919ecee04a763d",
+    "nms.mbt": "0e69e060a24527621d486fff5b69741f7738a24a006416cf70771ccb354482c9",
+    "validation/memory_scale/main.mbt": "e98d368f4cda381b1b7ce22d5c5e91ea3e634305bd243cbe1dddfd7e21fbe2be",
+    "validation/memory_scale/moon.pkg": "c2eec0fd4044fdbbec42e4ad01bb3c6e24b2585d9e8c70b0ccfe74c26c54caab",
+    "validation/memory_scale/run.py": "c2746ccc24a13c152fc45a30c1ac876ea2eac1e96a11edb20a63ea3b62929229"
+  },
+  "measurement": "Separate process per sample; peak memory covers startup, accumulation, merge and verification. Merge clock excludes setup and verification. Samples are alternated; a final short-lived peak can be missed.",
+  "scope": "Synthetic identical boxes in 10 classes, 1000 detections per tile. Each restored record, kept ID and suppression relation is checked. Not representative production throughput or memory.",
+  "measurements": [
+    {
+      "detections": 100000,
+      "modes": {
+        "snapshot": {
+          "samples": [
+            {
+              "merge_microseconds": 41741.5,
+              "process_seconds": 0.09969699999999992,
+              "peak_bytes": 36777984,
+              "restored": 100000,
+              "kept": 10,
+              "suppressed": 99990
+            },
+            {
+              "merge_microseconds": 49503.4,
+              "process_seconds": 0.11411789999999988,
+              "peak_bytes": 36823040,
+              "restored": 100000,
+              "kept": 10,
+              "suppressed": 99990
+            },
+            {
+              "merge_microseconds": 50560.3,
+              "process_seconds": 0.11505950000000009,
+              "peak_bytes": 36786176,
+              "restored": 100000,
+              "kept": 10,
+              "suppressed": 99990
+            }
+          ],
+          "median_peak_bytes": 36786176,
+          "median_merge_microseconds": 49503.4,
+          "median_process_seconds": 0.11411789999999988
+        },
+        "take": {
+          "samples": [
+            {
+              "merge_microseconds": 45779.6,
+              "process_seconds": 0.10411429999999999,
+              "peak_bytes": 35917824,
+              "restored": 100000,
+              "kept": 10,
+              "suppressed": 99990
+            },
+            {
+              "merge_microseconds": 48623,
+              "process_seconds": 0.10889940000000009,
+              "peak_bytes": 36048896,
+              "restored": 100000,
+              "kept": 10,
+              "suppressed": 99990
+            },
+            {
+              "merge_microseconds": 48438.9,
+              "process_seconds": 0.1109937999999997,
+              "peak_bytes": 35938304,
+              "restored": 100000,
+              "kept": 10,
+              "suppressed": 99990
+            }
+          ],
+          "median_peak_bytes": 35938304,
+          "median_merge_microseconds": 48438.9,
+          "median_process_seconds": 0.10889940000000009
+        }
+      }
+    },
+    {
+      "detections": 300000,
+      "modes": {
+        "snapshot": {
+          "samples": [
+            {
+              "merge_microseconds": 165448.80000000002,
+              "process_seconds": 0.36095789999999983,
+              "peak_bytes": 97349632,
+              "restored": 300000,
+              "kept": 10,
+              "suppressed": 299990
+            },
+            {
+              "merge_microseconds": 158173.4,
+              "process_seconds": 0.3295699000000001,
+              "peak_bytes": 97275904,
+              "restored": 300000,
+              "kept": 10,
+              "suppressed": 299990
+            },
+            {
+              "merge_microseconds": 177403.1,
+              "process_seconds": 0.34579679999999957,
+              "peak_bytes": 97398784,
+              "restored": 300000,
+              "kept": 10,
+              "suppressed": 299990
+            }
+          ],
+          "median_peak_bytes": 97349632,
+          "median_merge_microseconds": 165448.80000000002,
+          "median_process_seconds": 0.34579679999999957
+        },
+        "take": {
+          "samples": [
+            {
+              "merge_microseconds": 177895.69999999998,
+              "process_seconds": 0.3416535999999999,
+              "peak_bytes": 94965760,
+              "restored": 300000,
+              "kept": 10,
+              "suppressed": 299990
+            },
+            {
+              "merge_microseconds": 183211.5,
+              "process_seconds": 0.361189,
+              "peak_bytes": 94863360,
+              "restored": 300000,
+              "kept": 10,
+              "suppressed": 299990
+            },
+            {
+              "merge_microseconds": 188688.1,
+              "process_seconds": 0.3700809999999999,
+              "peak_bytes": 95031296,
+              "restored": 300000,
+              "kept": 10,
+              "suppressed": 299990
+            }
+          ],
+          "median_peak_bytes": 94965760,
+          "median_merge_microseconds": 183211.5,
+          "median_process_seconds": 0.361189
+        }
+      }
+    }
+  ]
+}
