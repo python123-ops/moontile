@@ -1,0 +1,54 @@
+{
+  "status": "passed",
+  "command": "python validation/batch_bench/run.py",
+  "source_base_revision": "8156f4f8cc843e5e80331788dd717e7d9c027086",
+  "source_sha256_lf": {
+    "accumulator.mbt": "1c7b7efd4be3fc099c90b1005895428892a7102ea99e932a1443083c52433dea",
+    "validation/batch_bench/main.mbt": "0f7797fbc14ce69b054c050f0106b4cc126f80c69ea6a99061f38a7baecbdb09",
+    "validation/batch_bench/moon.pkg": "50b10ba425564cbef7c8aa1836a4b6b16fa38a51d1e8e822ee3961dd2d1bf433",
+    "validation/batch_bench/run.py": "f49f164d796c89726e474c3f6b59ec10ddab315a7c6f8b49c4a6197eb66b217e"
+  },
+  "binary_sha256": "80c6bb16abb9ece3025d6827a5d4fae4d813b234fa7545d1c803cfe9511bf0f9",
+  "real_fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "python": "3.8.7",
+  "platform": "Windows-10-10.0.26100-SP0",
+  "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+  "toolchain": "moon 0.1.20260920 (914d7da 2026-09-20) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moon.exe\nmoonc v0.10.14+7d59c7ec9 (2026-09-18) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moonc.exe\nmoonrun 0.1.20260920 (914d7da 2026-09-20) ~\\.moon-0.10.9-final-c340122c7b1446ca853a17cddc5d9ef3\\bin\\moonrun.exe\n\nFeature flags enabled: rr_moon_mod,rr_moon_pkg",
+  "build": "native release",
+  "seed": null,
+  "real_fixture_equivalence": {
+    "images": 200,
+    "tiles": 1406,
+    "detections": 11657,
+    "replaced_tiles": 740,
+    "results_identical": true
+  },
+  "synthetic": {
+    "tile_count": 2000,
+    "detections_per_tile": 20,
+    "replaced_tiles": 500,
+    "repeats": 5,
+    "warmups": 1,
+    "sequential_microseconds": [
+      501801.1,
+      491443.2,
+      483307.4,
+      486074.10000000003,
+      563403.4
+    ],
+    "batch_microseconds": [
+      7538.099999999999,
+      8225.2,
+      8340.6,
+      8021,
+      8205.9
+    ],
+    "results_identical": true,
+    "detections": 40000,
+    "sequential_median_microseconds": 491443.2,
+    "batch_median_microseconds": 8205.9,
+    "median_speedup": 59.8890066903082
+  },
+  "measurement": "Monotonic clock measures only 500 sequential replacements versus one 500-tile batch; initialization and merge are excluded. One warmup, five measured pairs with alternating order. Every pair compares all restored boxes, kept boxes and suppression records.",
+  "scope": "Synthetic identical boxes across ten classes. Real COCO data is used for functional equivalence, not performance. Not an end-to-end throughput, memory, or production capacity measurement."
+}

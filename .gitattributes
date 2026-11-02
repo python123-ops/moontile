@@ -2,3 +2,4 @@ validation/real-tiled-coco-*.json text eol=lf
 validation/real-tiled-video-*.json text eol=lf
 validation/scale/*.json text eol=lf
 validation/video-scale/*.json text eol=lf
+validation/batch_bench/*.json text eol=lf

@@ -28,7 +28,10 @@ test "merged detection feeds tracking and evaluation" {
   .unwrap()
   assert_true(accumulator.finish_grid(grid) is Err(_))
   accumulator
-  .replace_tile({ tile: grid.get(1).unwrap(), detections: [], transform: None, })
+  .replace_tiles([
+    { tile: grid.get(1).unwrap(), detections: [], transform: None, },
+    { tile, detections: [d], transform: None, },
+  ])
   .unwrap()
   let result = accumulator.finish_grid(grid).unwrap()
   let track_input = to_tracker(result.merged.kept[0])

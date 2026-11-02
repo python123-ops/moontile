@@ -166,31 +166,49 @@ pub fn TileAccumulator::remove_tile(
 }
 
 ///|
-/// Atomically replace an accepted tile with the same ID. The replacement is
-/// validated before any state changes; its detection IDs may reuse those of the
-/// old tile, but must not conflict with another tile. Replacement detections
-/// follow all other accepted detections, affecting stable equal-score ordering.
+/// Atomically replace one accepted tile. Its ID must already exist. The
+/// replacement follows all other accepted detections for equal-score ranking.
 pub fn TileAccumulator::replace_tile(
   self : TileAccumulator,
   group : TilePredictions,
 ) -> Result[Unit, String] {
-  let tile_id = group.tile.id
-  if !self.tile_windows.contains(tile_id) {
-    return Err("unknown tile id")
+  self.replace_tiles([group])
+}
+
+///|
+/// Atomically replace several accepted tiles. All tile IDs must already exist
+/// and be unique. Detection IDs may move between replaced tiles but must not
+/// conflict with unchanged tiles. Replacements follow unchanged detections in
+/// batch order. Empty batches are valid. Failure leaves all state unchanged.
+pub fn TileAccumulator::replace_tiles(
+  self : TileAccumulator,
+  groups : Array[TilePredictions],
+) -> Result[Unit, String] {
+  if groups.length() == 0 {
+    return Ok(())
+  }
+  let replacement_tiles : Set[Int] = Set([])
+  for group in groups {
+    if !self.tile_windows.contains(group.tile.id) {
+      return Err("unknown tile id")
+    }
+    if !replacement_tiles.add_and_check(group.tile.id) {
+      return Err("duplicate tile id")
+    }
   }
   let staged = match
     TileAccumulator::new(self.image_width, self.image_height, self.config) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
-  match staged.add_tile(group) {
+  match staged.add_tiles(groups) {
     Ok(_) => ()
     Err(message) => return Err(message)
   }
   let old_ids : Set[Int] = Set([])
   let remaining : Array[Detection] = []
   for record in self.restored {
-    if record.tile_id == tile_id {
+    if replacement_tiles.contains(record.tile_id) {
       old_ids.add(record.id)
     } else {
       remaining.push(record)
@@ -202,11 +220,13 @@ pub fn TileAccumulator::replace_tile(
     }
   }
   for record in self.restored {
-    if record.tile_id == tile_id {
+    if replacement_tiles.contains(record.tile_id) {
       self.detection_ids.remove(record.id)
     }
   }
-  self.tile_windows[tile_id] = group.tile
+  for group in groups {
+    self.tile_windows[group.tile.id] = group.tile
+  }
   self.restored.clear()
   self.restored.append(remaining)
   for record in staged.restored {

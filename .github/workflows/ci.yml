@@ -31,6 +31,11 @@ jobs:
           python validation/sahi_layout.py --sahi-dir _build/sahi-reference --binary "$binary" --output "$RUNNER_TEMP/sahi-layout-results.json"
           python validation/replay_tiled_coco.py --binary "$binary"
           python validation/replay_tiled_coco.py --binary "$binary" --raw validation/scale/predictions.json --report validation/scale/results.json --clip-boundary --require-plan
+      - run: |
+          moon build validation/batch_bench --target native
+          bench=_build/native/debug/build/validation/batch_bench/batch_bench.exe
+          if [ ! -x "$bench" ]; then bench=_build/native/debug/build/validation/batch_bench/batch_bench; fi
+          "$bench" --real validation/scale/predictions.json
       - uses: actions/checkout@v4
         with:
           repository: python123-ops/mbmot
