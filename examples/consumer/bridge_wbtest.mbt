@@ -109,13 +109,15 @@ test "normalized JSON prediction reaches both consumers" {
     @moontile.process_json(source).unwrap(),
   )
   let frame = @replay_codec.parse_frame_line(
-    @moontile.process_mbmot_json(source, 1).unwrap(),
+    @moontile.process_mbmot_json_with_policy(source, 1, policy).unwrap(),
   )
   assert_eq(frame.detections().length(), 1)
   assert_eq(frame.detections()[0].bbox().x1(), 25.0)
   assert_eq(frame.detections()[0].bbox().y2(), 45.0)
   let predictions = @moondeteval.parse_coco_detections(
-    @moontile.process_coco_json(source, "[{\"class_id\":0,\"category_id\":7}]").unwrap(),
+    @moontile.process_coco_json_with_policy(
+      source, "[{\"class_id\":0,\"category_id\":7}]", policy,
+    ).unwrap(),
   )
   let truth = @moondeteval.Box::from_xywh(25.0, 15.0, 50.0, 30.0)
   let dataset = @moondeteval.Dataset::new(

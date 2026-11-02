@@ -67,6 +67,42 @@ pub fn process_coco_json(
   source : String,
   mapping_source : String,
 ) -> Result[String, String] {
+  process_coco_json_impl(source, mapping_source, None)
+}
+
+///|
+/// Export COCO predictions with caller-controlled limits. The text limit also
+/// applies independently to the mapping JSON before it is parsed.
+pub fn process_coco_json_with_policy(
+  source : String,
+  mapping_source : String,
+  policy : JsonPolicy,
+) -> Result[String, String] {
+  process_coco_json_impl(source, mapping_source, Some(policy))
+}
+
+///|
+fn process_coco_json_impl(
+  source : String,
+  mapping_source : String,
+  policy : JsonPolicy?,
+) -> Result[String, String] {
+  match policy {
+    Some(value) => {
+      if value.max_utf16_units < 0 ||
+        value.max_tiles < 0 ||
+        value.max_detections < 0 {
+        return Err("JSON policy limits must be nonnegative")
+      }
+      if source.length() > value.max_utf16_units {
+        return Err("JSON text limit exceeded")
+      }
+      if mapping_source.length() > value.max_utf16_units {
+        return Err("mapping JSON text limit exceeded")
+      }
+    }
+    None => ()
+  }
   let json = @json.parse(mapping_source) catch {
     _ => return Err("invalid mapping JSON")
   }
@@ -89,7 +125,7 @@ pub fn process_coco_json(
       return Err("mapping IDs must be integers")
     }
   }
-  let processed = match process_data(source) {
+  let processed = match process_data_with_policy(source, policy) {
     Ok(value) => value
     Err(message) => return Err(message)
   }

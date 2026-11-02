@@ -89,13 +89,6 @@ pub(all) struct PipelineResult {
 }
 
 ///|
-fn prepare_data(
-  source : String,
-) -> Result[(TileAccumulator, TileGrid?), String] {
-  prepare_data_with_policy(source, None)
-}
-
-///|
 fn prepare_data_with_policy(
   source : String,
   policy : JsonPolicy?,
@@ -210,7 +203,15 @@ fn prepare_data_with_policy(
 
 ///|
 fn process_data(source : String) -> Result[PipelineResult, String] {
-  let (accumulator, grid) = match prepare_data(source) {
+  process_data_with_policy(source, None)
+}
+
+///|
+fn process_data_with_policy(
+  source : String,
+  policy : JsonPolicy?,
+) -> Result[PipelineResult, String] {
+  let (accumulator, grid) = match prepare_data_with_policy(source, policy) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
@@ -324,16 +325,7 @@ pub fn process_json_with_policy(
   source : String,
   policy : JsonPolicy,
 ) -> Result[String, String] {
-  let (accumulator, grid) = match
-    prepare_data_with_policy(source, Some(policy)) {
-    Ok(value) => value
-    Err(message) => return Err(message)
-  }
-  let result = match grid {
-    Some(value) => accumulator.finish_grid_take(value)
-    None => accumulator.finish_take()
-  }
-  match result {
+  match process_data_with_policy(source, Some(policy)) {
     Ok(value) => Ok(pipeline_result_json(value).stringify())
     Err(message) => Err(message)
   }
@@ -362,7 +354,26 @@ pub fn inspect_grid_json(
   source : String,
   max_reported? : Int = 100,
 ) -> Result[String, String] {
-  let (accumulator, grid) = match prepare_data(source) {
+  inspect_grid_json_impl(source, None, max_reported)
+}
+
+///|
+/// Inspect a planned input with caller-controlled JSON and detection limits.
+pub fn inspect_grid_json_with_policy(
+  source : String,
+  policy : JsonPolicy,
+  max_reported? : Int = 100,
+) -> Result[String, String] {
+  inspect_grid_json_impl(source, Some(policy), max_reported)
+}
+
+///|
+fn inspect_grid_json_impl(
+  source : String,
+  policy : JsonPolicy?,
+  max_reported : Int,
+) -> Result[String, String] {
+  let (accumulator, grid) = match prepare_data_with_policy(source, policy) {
     Ok(value) => value
     Err(message) => return Err(message)
   }

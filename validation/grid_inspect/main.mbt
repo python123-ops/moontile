@@ -95,6 +95,16 @@ async fn main {
   }
   let mut tiles = 0
   let mut detections = 0
+  let mappings : Array[Json] = []
+  for class_id = 0; class_id <= 90; class_id = class_id + 1 {
+    mappings.push(
+      Json::object({
+        "class_id": class_id.to_json(),
+        "category_id": class_id.to_json(),
+      }),
+    )
+  }
+  let mapping_source = mappings.to_json().stringify()
   for index, request in fixture.requests {
     if request.tiles.length() < 2 {
       abort("fixture must have at least two windows per image")
@@ -158,6 +168,27 @@ async fn main {
       })
       is Ok(_) {
       abort("JSON policy failed to reject excess detections")
+    }
+    let export_policy = {
+      ..policy,
+      max_utf16_units: source.length().max(mapping_source.length()),
+    }
+    if @moontile.process_coco_json_with_policy(
+        source, mapping_source, export_policy,
+      ).unwrap() !=
+      @moontile.process_coco_json(source, mapping_source).unwrap() ||
+      @moontile.process_mbmot_json_with_policy(source, 1, export_policy).unwrap() !=
+      @moontile.process_mbmot_json(source, 1).unwrap() {
+      abort("JSON policy changed exported output")
+    }
+    let planned = source.replace(
+      old="\"tiles\":[",
+      new="\"tile_plan\":{\"tile_width\":256,\"tile_height\":256,\"overlap_x\":64,\"overlap_y\":64},\"tiles\":[",
+    )
+    let planned_policy = { ..policy, max_utf16_units: planned.length(), }
+    if @moontile.inspect_grid_json_with_policy(planned, planned_policy).unwrap() !=
+      @moontile.inspect_grid_json(planned).unwrap() {
+      abort("JSON policy changed grid inspection")
     }
     let bounded = @moontile.TileAccumulator::new_limited(
       request.image_width,
@@ -265,6 +296,9 @@ async fn main {
       "take_and_reuse_verified": fixture.requests.length().to_json(),
       "bounded_inputs_verified": fixture.requests.length().to_json(),
       "json_policy_inputs_verified": fixture.requests.length().to_json(),
+      "policy_export_and_inspection_verified": fixture.requests
+      .length()
+      .to_json(),
     }).stringify(),
   )
 }

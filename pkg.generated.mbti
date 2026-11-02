@@ -13,6 +13,8 @@ pub fn export_mbmot(Array[Detection], Int) -> Result[String, String]
 
 pub fn inspect_grid_json(String, max_reported? : Int) -> Result[String, String]
 
+pub fn inspect_grid_json_with_policy(String, JsonPolicy, max_reported? : Int) -> Result[String, String]
+
 pub fn merge_envelopes(Array[Detection], Double, Overlap, class_agnostic? : Bool) -> Result[MergeResult, String]
 
 pub fn plan_json(String) -> Result[String, String]
@@ -21,11 +23,15 @@ pub fn plan_tiles(Int, Int, Int, Int, Int, Int) -> Result[Array[Tile], String]
 
 pub fn process_coco_json(String, String) -> Result[String, String]
 
+pub fn process_coco_json_with_policy(String, String, JsonPolicy) -> Result[String, String]
+
 pub fn process_json(String) -> Result[String, String]
 
 pub fn process_json_with_policy(String, JsonPolicy) -> Result[String, String]
 
 pub fn process_mbmot_json(String, Int) -> Result[String, String]
+
+pub fn process_mbmot_json_with_policy(String, Int, JsonPolicy) -> Result[String, String]
 
 pub fn process_tiles(Int, Int, Array[TilePredictions], MergeConfig) -> Result[PipelineResult, String]
 

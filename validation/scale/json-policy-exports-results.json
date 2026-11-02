@@ -1,0 +1,17 @@
+{
+  "images": 200,
+  "tiles": 1406,
+  "detections": 11657,
+  "repairs_verified": 200,
+  "outputs_identical": true,
+  "take_and_reuse_verified": 200,
+  "bounded_inputs_verified": 200,
+  "json_policy_inputs_verified": 200,
+  "policy_export_and_inspection_verified": 200,
+  "status": "passed",
+  "fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "binary_sha256": "27e14ba7501965e0fd706c767395625805b2e178484e6326088e3f59e0c8f4b6",
+  "source_sha256_lf": "a3509b00d47d5924e28a782f2fafc6967acfbc566e9aceb5005d8c301f8773eb",
+  "command": "moon build validation/grid_inspect --target native && <grid_inspect-native> validation/scale/predictions.json",
+  "scope": "Real COCO tile predictions; compares caller-policy and standard COCO, MBMOT and grid inspection JSON outputs, with explicit identity class mappings. Synthetic errors are injected in separate checks."
+}

@@ -64,10 +64,29 @@ pub fn process_mbmot_json(
   source : String,
   frame : Int,
 ) -> Result[String, String] {
+  process_mbmot_json_impl(source, frame, None)
+}
+
+///|
+/// Export an MBMOT frame while enforcing caller-controlled JSON limits.
+pub fn process_mbmot_json_with_policy(
+  source : String,
+  frame : Int,
+  policy : JsonPolicy,
+) -> Result[String, String] {
+  process_mbmot_json_impl(source, frame, Some(policy))
+}
+
+///|
+fn process_mbmot_json_impl(
+  source : String,
+  frame : Int,
+  policy : JsonPolicy?,
+) -> Result[String, String] {
   if frame <= 0 {
     return Err("frame must be positive")
   }
-  let processed = match process_data(source) {
+  let processed = match process_data_with_policy(source, policy) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
