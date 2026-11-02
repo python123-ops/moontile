@@ -1,0 +1,14 @@
+{
+  "frames": 150,
+  "tiles": 900,
+  "detections": 955,
+  "text_rejections": 150,
+  "detection_rejections": 147,
+  "outputs_identical": true,
+  "status": "passed",
+  "fixture_sha256": "44da38439f3038a878ac6e7189dfb70a12bacd271da80281af682bdc372a5f62",
+  "binary_sha256": "9a2802e0da34471547e9d8616b10cf159276a06f7c7f6d559fddf1fcfb40ac9d",
+  "source_sha256_lf": "dbc4ab6d9ead710496d6a1d34502be70b76654181961143d849ab36afcdf1921",
+  "command": "moon build validation/stream_policy --target native && <stream_policy-native> validation/video-scale/predictions.json",
+  "scope": "Real sliced OpenCV HOG video predictions; text and detection limit failures are synthetic injections. No tracking ground truth or tracking accuracy evaluation."
+}

@@ -65,11 +65,45 @@ pub fn StreamSession::process_line(
   self : StreamSession,
   source : String,
 ) -> Result[String, String] {
+  self.process_line_impl(source, None)
+}
+
+///|
+/// Process one MBMOT frame using caller limits. The UTF-16 ceiling applies
+/// to the complete {frame,input} line, excluding any transport newline.
+/// Errors leave the session's last accepted frame unchanged.
+pub fn StreamSession::process_line_with_policy(
+  self : StreamSession,
+  source : String,
+  policy : JsonPolicy,
+) -> Result[String, String] {
+  self.process_line_impl(source, Some(policy))
+}
+
+///|
+fn StreamSession::process_line_impl(
+  self : StreamSession,
+  source : String,
+  policy : JsonPolicy?,
+) -> Result[String, String] {
+  match check_stream_policy(source, policy) {
+    Ok(_) => ()
+    Err(message) => return Err(message)
+  }
   let input = match parse_stream_input(source, self.last_frame) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
-  let output = match process_mbmot_json(input.input.stringify(), input.frame) {
+  let nested = input.input.stringify()
+  let result = match policy {
+    None => process_mbmot_json(nested, input.frame)
+    Some(value) =>
+      process_mbmot_json_with_policy(nested, input.frame, {
+        ..value,
+        max_utf16_units: nested.length(),
+      })
+  }
+  let output = match result {
     Ok(value) => value
     Err(message) => return Err(message)
   }
@@ -86,11 +120,40 @@ pub fn StreamSession::process_trace_line(
   self : StreamSession,
   source : String,
 ) -> Result[String, String] {
+  self.process_trace_line_impl(source, None)
+}
+
+///|
+/// Process one trace frame with a caller policy. Text length covers the full
+/// {frame,input} line; rejected frames do not advance the shared frame counter.
+pub fn StreamSession::process_trace_line_with_policy(
+  self : StreamSession,
+  source : String,
+  policy : JsonPolicy,
+) -> Result[String, String] {
+  self.process_trace_line_impl(source, Some(policy))
+}
+
+///|
+fn StreamSession::process_trace_line_impl(
+  self : StreamSession,
+  source : String,
+  policy : JsonPolicy?,
+) -> Result[String, String] {
+  match check_stream_policy(source, policy) {
+    Ok(_) => ()
+    Err(message) => return Err(message)
+  }
   let input = match parse_stream_input(source, self.last_frame) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
-  let processed = match process_data(input.input.stringify()) {
+  let nested = input.input.stringify()
+  let nested_policy = match policy {
+    None => None
+    Some(value) => Some({ ..value, max_utf16_units: nested.length(), })
+  }
+  let processed = match process_data_with_policy(nested, nested_policy) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
@@ -103,4 +166,26 @@ pub fn StreamSession::process_trace_line(
   }).stringify()
   self.last_frame = Some(input.frame)
   Ok(output)
+}
+
+///|
+// Enforce the original envelope length before parsing or reserializing it.
+fn check_stream_policy(
+  source : String,
+  policy : JsonPolicy?,
+) -> Result[Unit, String] {
+  match policy {
+    None => Ok(())
+    Some(value) => {
+      if value.max_utf16_units < 0 ||
+        value.max_tiles < 0 ||
+        value.max_detections < 0 {
+        return Err("JSON policy limits must be nonnegative")
+      }
+      if source.length() > value.max_utf16_units {
+        return Err("JSON text limit exceeded")
+      }
+      Ok(())
+    }
+  }
 }

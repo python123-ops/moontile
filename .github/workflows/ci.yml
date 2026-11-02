@@ -41,6 +41,10 @@ jobs:
           inspect=_build/native/debug/build/validation/grid_inspect/grid_inspect.exe
           if [ ! -x "$inspect" ]; then inspect=_build/native/debug/build/validation/grid_inspect/grid_inspect; fi
           "$inspect" validation/scale/predictions.json
+          moon build validation/stream_policy --target native
+          stream_policy=_build/native/debug/build/validation/stream_policy/stream_policy.exe
+          if [ ! -x "$stream_policy" ]; then stream_policy=_build/native/debug/build/validation/stream_policy/stream_policy; fi
+          "$stream_policy" validation/video-scale/predictions.json
       - uses: actions/checkout@v4
         with:
           repository: python123-ops/mbmot
