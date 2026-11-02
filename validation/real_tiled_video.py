@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -184,6 +185,39 @@ def replay(args):
         raise AssertionError('saved merge counts differ')
     if args.mbmot:
         compare(tracks, json.loads(args.tracks.read_text(encoding='utf8')))
+    if args.check_policy:
+        requests = raw['requests']
+        lines = [json.dumps(request, separators=(',', ':')) for request in requests]
+        # Python text-mode subprocess pipes translate LF to CRLF on Windows.
+        # The CLI consumes LF but the preceding CR remains part of the line.
+        max_units = max(len(line.encode('utf-16-le')) // 2 for line in lines) + int(os.linesep == '\r\n')
+        max_tiles = max(len(request['input']['tiles']) for request in requests)
+        max_detections = max(sum(len(group['detections']) for group in request['input']['tiles']) for request in requests)
+        if max_detections < 1 or max_tiles < 1:
+            raise AssertionError('policy replay requires nonempty detections and tiles')
+        expected_trace = read_lines(run(args.moontile, ['--trace-stream'], stream_text(requests)))
+        for mode, expected_rows in [('--mbmot-stream', output), ('--trace-stream', expected_trace)]:
+            flags = [mode, '--policy', max_units, max_tiles, max_detections]
+            compare(read_lines(run(args.moontile, flags, stream_text(requests))), expected_rows)
+            for limit_name in ('tiles', 'detections'):
+                tiles = max_tiles - 1 if limit_name == 'tiles' else max_tiles
+                detections = max_detections - 1 if limit_name == 'detections' else max_detections
+                failing = next(i for i, request in enumerate(requests) if len(request['input']['tiles']) > tiles or sum(len(group['detections']) for group in request['input']['tiles']) > detections)
+                cmd = [str(args.moontile.resolve()), mode, '--policy', str(max_units), str(tiles), str(detections)]
+                failed = subprocess.run(cmd, input=stream_text(requests), text=True, capture_output=True)
+                if failed.returncode != 2 or f'line {failing + 1}: ' not in failed.stderr:
+                    raise AssertionError('unexpected policy rejection')
+                compare(read_lines(failed.stdout), expected_rows[:failing])
+        policy_report = {'status': 'passed', 'frames': len(requests), 'counts': counts,
+                         'max_utf16_units': max_units, 'max_tiles': max_tiles, 'max_detections': max_detections,
+                         'modes_verified': ['mbmot-stream', 'trace-stream'], 'valid_outputs_match': True,
+                         'over_limit_prefixes_verified': 4, 'fixture_sha256': digest(args.raw), 'binary_sha256': digest(args.moontile),
+                         'script_sha256_lf': hashlib.sha256(Path(__file__).read_bytes().replace(b'\r\n', b'\n')).hexdigest(),
+                         'command': 'python validation/real_tiled_video.py replay --moontile <moontile-cli> --raw validation/video-scale/predictions.json --output-frames validation/video-scale/detections.json --tracks validation/video-scale/tracks.json --report validation/video-scale/results.json --check-policy --policy-output validation/video-scale/cli-policy-results.json',
+                         'scope': 'Real sliced HOG video predictions; limits are artificial boundary conditions. No tracking ground truth or tracking accuracy assessment.'}
+        if args.policy_output:
+            args.policy_output.write_text(json.dumps(policy_report, indent=2) + '\n', encoding='utf8')
+        print('Verified CLI policy on {} real frames in two stream modes.'.format(len(requests)))
     print('Replayed {} real frames: {} restored, {} kept, {} suppressed.'.format(len(output), counts['restored'], counts['kept'], counts['suppressed']))
 
 
@@ -196,7 +230,13 @@ def main():
     p.add_argument('--output-frames', type=Path, default=HERE / 'real-tiled-video-detections.json')
     p.add_argument('--tracks', type=Path, default=HERE / 'real-tiled-video-tracks.json')
     p.add_argument('--report', type=Path, default=HERE / 'real-tiled-video-results.json')
+    p.add_argument('--check-policy', action='store_true')
+    p.add_argument('--policy-output', type=Path)
     args = p.parse_args()
+    if args.policy_output and (not args.check_policy or args.mode != 'replay'):
+        p.error('--policy-output requires replay --check-policy')
+    if args.check_policy and args.mode != 'replay':
+        p.error('--check-policy requires replay')
     if args.mode == 'infer':
         if args.video is None or args.mbmot is None or not args.moontile_revision or not args.mbmot_revision or args.frames < 1:
             p.error('infer requires --video, --mbmot, both revisions and positive --frames')

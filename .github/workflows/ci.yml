@@ -18,7 +18,7 @@ jobs:
       - run: moon check --target all --deny-warn
       - run: moon test --target all --deny-warn
       - run: moon -C examples/consumer test --target all --deny-warn
-      - run: node web/build.mjs && node web/test.mjs && node web/ui_test.mjs && node web/stream_test.mjs && node web/trace_stream_test.mjs
+      - run: node web/build.mjs && node web/test.mjs && node web/ui_test.mjs && node web/stream_test.mjs && node web/trace_stream_test.mjs && node web/cli_policy_test.mjs
       - run: python validation/memory_scale/run.py --counts 10000 --repeat 1 --output "$RUNNER_TEMP/memory-scale-results.json"
       - uses: actions/checkout@v4
         with:
@@ -59,6 +59,6 @@ jobs:
           tracker=_build/mbmot-reference/_build/native/debug/build/replay/replay.exe
           if [ ! -x "$tracker" ]; then tracker=_build/mbmot-reference/_build/native/debug/build/replay/replay; fi
           python validation/real_tiled_video.py replay --moontile "$binary" --mbmot "$tracker"
-          python validation/real_tiled_video.py replay --moontile "$binary" --mbmot "$tracker" --raw validation/video-scale/predictions.json --output-frames validation/video-scale/detections.json --tracks validation/video-scale/tracks.json --report validation/video-scale/results.json
+          python validation/real_tiled_video.py replay --moontile "$binary" --mbmot "$tracker" --raw validation/video-scale/predictions.json --output-frames validation/video-scale/detections.json --tracks validation/video-scale/tracks.json --report validation/video-scale/results.json --check-policy
       - run: moon package
       - run: python validation/package_consumer.py --archive _build/publish/python123-ops-moontile-0.1.0.zip

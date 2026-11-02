@@ -127,7 +127,11 @@ MoonBit 调用方也可用 `StreamSession::new()` 和 `process_line` 逐行处�
 
 需要调用方限额时，流接口可显式调用 `process_line_with_policy(line, policy)` 或 `process_trace_line_with_policy(line, policy)`。文本长度检查针对传入的完整 `{frame,input}` 字符串，在解析前执行；调用方若已去除传输换行，换行不计入长度。切片和检测上限针对该帧，输入中的 `limits` 仍只能收紧上限。两种输出共享帧号，超限或其他错误不会推进帧号，可以修正后重试。该检查发生在字符串读入后，不能限制读取时占用的内存，CLI 和浏览器也不会自动启用此策略。
 
+原生 CLI 的两个流模式也可显式设置服务端限额，例如 `moontile --mbmot-stream --policy 1000000 1000 50000`；`--trace-stream` 使用相同参数，依次为最大 UTF-16 代码单元、切片数和检测数。三项均为非负 32 位整数；不带 `--policy` 时保持原行为。标准输入读取到 LF 后才检查该行，LF 不计入长度；CRLF 的 CR 会计入。超限时保留先前已输出的帧，错误写入标准错误并以状态码 2 退出。CLI 先读取整行，再应用此策略，因此仍需在上游限制输入字节数。
+
 对 150 帧真实视频切片预测，带策略与原流接口的 MBMOT 和追踪诊断输出逐帧一致；人为收紧文本上限的 150 次请求及有预测帧的 147 次检测数超限请求均被拒绝，未推进帧号。[流策略回放结果](validation/video-scale/stream-policy-results.json)记录了数据和程序哈希；该视频无跟踪标注，回放不评估轨迹准确率。
+
+对同一批视频预测，CLI 的两种流模式在限额足够时输出与原模式一致；收紧切片或检测数上限时，已输出帧的前缀保持一致。[CLI 流策略回放结果](validation/video-scale/cli-policy-results.json)记录了实际参数与哈希。
 
 其他下游程序需要保留切片来源和抑制诊断时，可以对相同的 NDJSON 输入使用 `--trace-stream`：
 
