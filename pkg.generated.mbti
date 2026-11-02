@@ -23,6 +23,8 @@ pub fn process_coco_json(String, String) -> Result[String, String]
 
 pub fn process_json(String) -> Result[String, String]
 
+pub fn process_json_with_policy(String, JsonPolicy) -> Result[String, String]
+
 pub fn process_mbmot_json(String, Int) -> Result[String, String]
 
 pub fn process_tiles(Int, Int, Array[TilePredictions], MergeConfig) -> Result[PipelineResult, String]
@@ -93,6 +95,12 @@ pub fn InputCenterBox::from_json(Json, @json.JsonPath) -> Self raise @json.JsonD
 
 type InputXywh derive(@json.FromJson)
 pub fn InputXywh::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+
+pub(all) struct JsonPolicy {
+  max_utf16_units : Int
+  max_tiles : Int
+  max_detections : Int
+}
 
 type LimitsInput derive(@json.FromJson)
 pub fn LimitsInput::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError

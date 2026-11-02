@@ -73,6 +73,15 @@ pub(all) struct MergeConfig {
 }
 
 ///|
+/// Caller-controlled ceilings for a JSON document and its accepted detections.
+/// String size is measured in UTF-16 code units, not bytes.
+pub(all) struct JsonPolicy {
+  max_utf16_units : Int
+  max_tiles : Int
+  max_detections : Int
+}
+
+///|
 /// The input-ordered restored detections and the ranked merge result.
 pub(all) struct PipelineResult {
   restored : Array[Detection]
@@ -83,6 +92,27 @@ pub(all) struct PipelineResult {
 fn prepare_data(
   source : String,
 ) -> Result[(TileAccumulator, TileGrid?), String] {
+  prepare_data_with_policy(source, None)
+}
+
+///|
+fn prepare_data_with_policy(
+  source : String,
+  policy : JsonPolicy?,
+) -> Result[(TileAccumulator, TileGrid?), String] {
+  match policy {
+    Some(value) => {
+      if value.max_utf16_units < 0 ||
+        value.max_tiles < 0 ||
+        value.max_detections < 0 {
+        return Err("JSON policy limits must be nonnegative")
+      }
+      if source.length() > value.max_utf16_units {
+        return Err("JSON text limit exceeded")
+      }
+    }
+    None => ()
+  }
   let json = @json.parse(source) catch { _ => return Err("invalid JSON") }
   let input : PipelineInput = @json.from_json(json) catch {
     _ => return Err("invalid pipeline fields")
@@ -100,12 +130,27 @@ fn prepare_data(
     Some("greedy_nmm") => GreedyNmm
     Some(_) => return Err("strategy must be nms or greedy_nmm")
   }
-  let limits : AccumulatorLimits? = match input.limits {
+  let request_limits : AccumulatorLimits? = match input.limits {
     None => None
     Some(value) => {
       if value.max_tiles < 0 || value.max_detections < 0 {
         return Err("accumulator limits must be nonnegative")
       }
+      Some({ max_tiles: value.max_tiles, max_detections: value.max_detections, })
+    }
+  }
+  let limits : AccumulatorLimits? = match (policy, request_limits) {
+    (None, value) => value
+    (Some(value), None) =>
+      Some({ max_tiles: value.max_tiles, max_detections: value.max_detections, })
+    (Some(value), Some(request)) =>
+      Some({
+        max_tiles: value.max_tiles.min(request.max_tiles),
+        max_detections: value.max_detections.min(request.max_detections),
+      })
+  }
+  match limits {
+    Some(value) => {
       if input.tiles.length() > value.max_tiles {
         return Err("tile limit exceeded")
       }
@@ -116,8 +161,8 @@ fn prepare_data(
         }
         available -= group.detections.length()
       }
-      Some({ max_tiles: value.max_tiles, max_detections: value.max_detections, })
     }
+    None => ()
   }
   let tiles : Array[TilePredictions] = []
   for group in input.tiles {
@@ -269,6 +314,29 @@ pub fn process_json(source : String) -> Result[String, String] {
     Err(message) => return Err(message)
   }
   Ok(pipeline_result_json(processed).stringify())
+}
+
+///|
+/// Process JSON with caller-controlled ceilings. Request limits can only make
+/// the tile and detection limits stricter. The source string is already in
+/// memory; use a transport byte limit before reading untrusted input.
+pub fn process_json_with_policy(
+  source : String,
+  policy : JsonPolicy,
+) -> Result[String, String] {
+  let (accumulator, grid) = match
+    prepare_data_with_policy(source, Some(policy)) {
+    Ok(value) => value
+    Err(message) => return Err(message)
+  }
+  let result = match grid {
+    Some(value) => accumulator.finish_grid_take(value)
+    None => accumulator.finish_take()
+  }
+  match result {
+    Ok(value) => Ok(pipeline_result_json(value).stringify())
+    Err(message) => Err(message)
+  }
 }
 
 ///|

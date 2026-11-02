@@ -99,6 +99,15 @@ test "normalized center box reaches tracking and evaluation" {
 test "normalized JSON prediction reaches both consumers" {
   let source =
     #|{"image_width":100,"image_height":60,"threshold":0.5,"metric":"iou","class_agnostic":false,"tiles":[{"tile":{"id":0,"x":0,"y":0,"width":100,"height":60},"box_format":"normalized_cxcywh","coordinate_width":100,"coordinate_height":60,"detections":[{"id":1,"image_id":1,"tile_id":0,"class_id":0,"score":0.95,"box":{"cx":0.5,"cy":0.5,"width":0.5,"height":0.5}}]}]}
+  let policy : @moontile.JsonPolicy = {
+    max_utf16_units: source.length(),
+    max_tiles: 1,
+    max_detections: 1,
+  }
+  assert_eq(
+    @moontile.process_json_with_policy(source, policy).unwrap(),
+    @moontile.process_json(source).unwrap(),
+  )
   let frame = @replay_codec.parse_frame_line(
     @moontile.process_mbmot_json(source, 1).unwrap(),
   )

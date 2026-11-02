@@ -1,0 +1,16 @@
+{
+  "images": 200,
+  "tiles": 1406,
+  "detections": 11657,
+  "repairs_verified": 200,
+  "outputs_identical": true,
+  "take_and_reuse_verified": 200,
+  "bounded_inputs_verified": 200,
+  "json_policy_inputs_verified": 200,
+  "status": "passed",
+  "fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "binary_sha256": "99515a7de6651aa847e3ab02ec240dcca413a32a8bb62458cfe728efcf85b3af",
+  "source_sha256_lf": "96ee7326aa453b866a0957a6d6e269368f4dc50a5b2f8ed33e6420720ef9f700",
+  "command": "moon build validation/grid_inspect --target native && <grid_inspect-native> validation/scale/predictions.json",
+  "scope": "Real COCO crop predictions. Exact caller policies reproduce original output; policies one unit below text, tile and detection sizes reject inputs. Text is serialized from saved JSON."
+}

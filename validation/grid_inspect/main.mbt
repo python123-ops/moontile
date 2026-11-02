@@ -82,12 +82,20 @@ async fn main {
   let fixture : Fixture = @json.from_json(json) catch {
     _ => abort("invalid fixture fields")
   }
+  let requests = match json {
+    Object(fields) =>
+      match fields.get("requests") {
+        Some(Array(values)) => values
+        _ => abort("invalid fixture requests")
+      }
+    _ => abort("invalid fixture object")
+  }
   if fixture.requests.length() == 0 {
     abort("empty fixture")
   }
   let mut tiles = 0
   let mut detections = 0
-  for request in fixture.requests {
+  for index, request in fixture.requests {
     if request.tiles.length() < 2 {
       abort("fixture must have at least two windows per image")
     }
@@ -120,6 +128,36 @@ async fn main {
       })
       detections += item.detections.length()
       image_detections += item.detections.length()
+    }
+    let source = requests[index].stringify()
+    let policy : @moontile.JsonPolicy = {
+      max_utf16_units: source.length(),
+      max_tiles: groups.length(),
+      max_detections: image_detections,
+    }
+    if @moontile.process_json_with_policy(source, policy).unwrap() !=
+      @moontile.process_json(source).unwrap() {
+      abort("JSON policy changed output")
+    }
+    if @moontile.process_json_with_policy(source, {
+        ..policy,
+        max_utf16_units: source.length() - 1,
+      })
+      is Ok(_) ||
+      @moontile.process_json_with_policy(source, {
+        ..policy,
+        max_tiles: groups.length() - 1,
+      })
+      is Ok(_) {
+      abort("JSON policy failed to reject oversized input")
+    }
+    if image_detections > 0 &&
+      @moontile.process_json_with_policy(source, {
+        ..policy,
+        max_detections: image_detections - 1,
+      })
+      is Ok(_) {
+      abort("JSON policy failed to reject excess detections")
     }
     let bounded = @moontile.TileAccumulator::new_limited(
       request.image_width,
@@ -226,6 +264,7 @@ async fn main {
       "outputs_identical": true.to_json(),
       "take_and_reuse_verified": fixture.requests.length().to_json(),
       "bounded_inputs_verified": fixture.requests.length().to_json(),
+      "json_policy_inputs_verified": fixture.requests.length().to_json(),
     }).stringify(),
   )
 }

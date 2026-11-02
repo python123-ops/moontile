@@ -83,6 +83,10 @@ MoonBit 调用方可以使用类型化的 `process_tiles(image_width, image_heig
 
 JSON 请求也可添加 `"limits": {"max_tiles": 1000, "max_detections": 50000}`；两个字段必须同时提供，均为非负的 32 位整数，`null`、小数和缺失字段会报错。省略 `limits` 保持原行为。CLI、浏览器、完整性巡检、COCO/MBMOT 导出和逐帧流共用此设置；CLI 出错时该请求不输出部分结果，流处理已输出的前序帧不回滚。JSON 会先完整读取和解析，之后才检查数量，因此此设置不限制文件大小或解析内存；限额由输入提供，接收不可信输入的程序仍需在外部设置文件大小及其他资源约束。
 
+MoonBit 嵌入方可以调用 `process_json_with_policy(source, { max_utf16_units: 1000000, max_tiles: 1000, max_detections: 50000 })`，由调用方而非请求设置上限。文本长度在 JSON 解析前检查，单位是 UTF-16 代码单元：例如 `🌙` 占两个单位；它不是 UTF-8 字节数。请求自带 `limits` 时，窗口和检测数取两者中更严格的上限。所有策略值须非负，未通过时返回错误。接口接收的字符串已经读入内存，仍需在网络或文件读取层限制字节数；策略当前只适用于此 API，CLI、浏览器、导出和流接口不会自动应用调用方策略。
+
+在 200 张真实图片的预测回放中，策略上限恰好等于输入大小时结果与原流程一致，将文本长度、切片数或检测数上限减少 1 时均返回错误。[策略回放记录](validation/scale/json-policy-results.json)包含输入及验证程序哈希。
+
 对 200 张真实图片的切片预测，将限额设为恰好容纳每张图的输入后，结果与批处理一致；检测上限减少 1 时整批被拒绝且状态为空。[限额回放记录](validation/scale/accumulator-limits-results.json)包含输入与验证程序哈希。
 
 同一批预测的 JSON/CLI 回放覆盖了 200 个恰好满足限额的输入，以及各 200 个切片数或检测数超过限额的输入；超限时标准输出为空。[JSON 限额回放结果](validation/scale/json-limits-results.json)记录了输入和二进制哈希。
