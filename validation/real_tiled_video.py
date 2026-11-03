@@ -218,6 +218,35 @@ def replay(args):
         if args.policy_output:
             args.policy_output.write_text(json.dumps(policy_report, indent=2) + '\n', encoding='utf8')
         print('Verified CLI policy on {} real frames in two stream modes.'.format(len(requests)))
+    if args.check_byte_limit:
+        requests = raw['requests']
+        lines = [json.dumps(request, separators=(',', ':')) for request in requests]
+        line_bytes = [len(line.encode('utf8')) + int(os.linesep == '\r\n') for line in lines]
+        max_bytes = max(line_bytes)
+        max_units = max(len(line.encode('utf-16-le')) // 2 for line in lines) + int(os.linesep == '\r\n')
+        max_tiles = max(len(request['input']['tiles']) for request in requests)
+        max_detections = max(sum(len(group['detections']) for group in request['input']['tiles']) for request in requests)
+        trace = read_lines(run(args.moontile, ['--trace-stream'], stream_text(requests)))
+        failing = next(i for i, size in enumerate(line_bytes) if size == max_bytes)
+        for mode, expected_rows in [('--mbmot-stream', output), ('--trace-stream', trace)]:
+            flags = [mode, '--max-line-bytes', max_bytes, '--policy', max_units, max_tiles, max_detections]
+            compare(read_lines(run(args.moontile, flags, stream_text(requests))), expected_rows)
+            cmd = [str(args.moontile.resolve()), mode, '--max-line-bytes', str(max_bytes - 1)]
+            failed = subprocess.run(cmd, input=stream_text(requests), text=True, capture_output=True)
+            if failed.returncode != 2 or f'line {failing + 1}: line byte limit exceeded' not in failed.stderr:
+                raise AssertionError('unexpected byte-limit rejection')
+            compare(read_lines(failed.stdout), expected_rows[:failing])
+        byte_report = {'status': 'passed', 'frames': len(requests), 'counts': counts,
+                       'max_line_bytes': max_bytes, 'max_utf16_units': max_units,
+                       'max_tiles': max_tiles, 'max_detections': max_detections,
+                       'modes_verified': ['mbmot-stream', 'trace-stream'], 'valid_outputs_match': True,
+                       'over_limit_prefixes_verified': 2, 'fixture_sha256': digest(args.raw), 'binary_sha256': digest(args.moontile),
+                       'script_sha256_lf': hashlib.sha256(Path(__file__).read_bytes().replace(b'\r\n', b'\n')).hexdigest(),
+                       'command': 'python validation/real_tiled_video.py replay --moontile <moontile-cli> --raw validation/video-scale/predictions.json --output-frames validation/video-scale/detections.json --tracks validation/video-scale/tracks.json --report validation/video-scale/results.json --check-byte-limit --byte-limit-output validation/video-scale/cli-byte-limit-results.json',
+                       'scope': 'Real sliced HOG video predictions; limits are artificial boundary conditions. No tracking ground truth or tracking accuracy assessment.'}
+        if args.byte_limit_output:
+            args.byte_limit_output.write_text(json.dumps(byte_report, indent=2) + '\n', encoding='utf8')
+        print('Verified CLI byte limit on {} real frames in two stream modes.'.format(len(requests)))
     print('Replayed {} real frames: {} restored, {} kept, {} suppressed.'.format(len(output), counts['restored'], counts['kept'], counts['suppressed']))
 
 
@@ -232,7 +261,13 @@ def main():
     p.add_argument('--report', type=Path, default=HERE / 'real-tiled-video-results.json')
     p.add_argument('--check-policy', action='store_true')
     p.add_argument('--policy-output', type=Path)
+    p.add_argument('--check-byte-limit', action='store_true')
+    p.add_argument('--byte-limit-output', type=Path)
     args = p.parse_args()
+    if args.byte_limit_output and (not args.check_byte_limit or args.mode != 'replay'):
+        p.error('--byte-limit-output requires replay --check-byte-limit')
+    if args.check_byte_limit and args.mode != 'replay':
+        p.error('--check-byte-limit requires replay')
     if args.policy_output and (not args.check_policy or args.mode != 'replay'):
         p.error('--policy-output requires replay --check-policy')
     if args.check_policy and args.mode != 'replay':

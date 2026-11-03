@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "frames": 150,
+  "counts": {
+    "restored": 955,
+    "kept": 468,
+    "suppressed": 487
+  },
+  "max_line_bytes": 2118,
+  "max_utf16_units": 2118,
+  "max_tiles": 6,
+  "max_detections": 13,
+  "modes_verified": [
+    "mbmot-stream",
+    "trace-stream"
+  ],
+  "valid_outputs_match": true,
+  "over_limit_prefixes_verified": 2,
+  "fixture_sha256": "44da38439f3038a878ac6e7189dfb70a12bacd271da80281af682bdc372a5f62",
+  "binary_sha256": "29778ee2ffc76c1d221c12763354a8624c1cd246fb5ebf710f069cf3644e9041",
+  "script_sha256_lf": "2d8b3196d7431488e8b99d0a1a572fdd46af3a47cc35204df9e124bff022baab",
+  "command": "python validation/real_tiled_video.py replay --moontile <moontile-cli> --raw validation/video-scale/predictions.json --output-frames validation/video-scale/detections.json --tracks validation/video-scale/tracks.json --report validation/video-scale/results.json --check-byte-limit --byte-limit-output validation/video-scale/cli-byte-limit-results.json",
+  "scope": "Real sliced HOG video predictions; limits are artificial boundary conditions. No tracking ground truth or tracking accuracy assessment."
+}
