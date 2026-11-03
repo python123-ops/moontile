@@ -81,7 +81,11 @@ MoonBit 调用方可以使用类型化的 `process_tiles(image_width, image_heig
 
 需要限制累积规模时，可通过 `TileAccumulator::new_limited(width, height, config, { max_tiles: 1000, max_detections: 50000 })` 设置已接收窗口和检测的数量上限；两个上限都允许为零，空预测窗口也计入窗口数。批量新增在暂存前检查整体数量；批量替换按替换完成后的检测总数检查。超限会返回错误且不修改累积器；移除窗口、`reset()` 或 `finish_take()` 后可以在同一上限内继续使用。原有 `new()` 不设数量上限。这些上限不约束调用方已经创建的输入数组、JSON 解析、合并时的临时空间或总进程内存。
 
-JSON 请求也可添加 `"limits": {"max_tiles": 1000, "max_detections": 50000}`；两个字段必须同时提供，均为非负的 32 位整数，`null`、小数和缺失字段会报错。省略 `limits` 保持原行为。CLI、浏览器、完整性巡检、COCO/MBMOT 导出和逐帧流共用此设置；CLI 出错时该请求不输出部分结果，流处理已输出的前序帧不回滚。JSON 会先完整读取和解析，之后才检查数量，因此此设置不限制文件大小或解析内存；限额由输入提供，接收不可信输入的程序仍需在外部设置文件大小及其他资源约束。
+JSON 请求也可添加 `"limits": {"max_tiles": 1000, "max_detections": 50000}`；两个字段必须同时提供，均为非负的 32 位整数，`null`、小数和缺失字段会报错。省略 `limits` 保持原行为。CLI、浏览器、完整性巡检、COCO/MBMOT 导出和逐帧流共用此设置；CLI 出错时该请求不输出部分结果，流处理已输出的前序帧不回滚。JSON 会先完整读取和解析，之后才检查数量，因此此设置不限制文件大小或解析内存；限额由输入提供，接收不可信输入的程序仍需独立设置文件大小及其他资源约束。
+
+原生 CLI 的文件模式可在命令末尾增加 `--max-file-bytes 1048576`，在读取期间限制 UTF-8 文件字节数；例如 `moontile input.json --coco-map mapping.json --max-file-bytes 1048576`。输入文件和类别映射文件分别应用该上限，按实际读取字节检查，不依赖文件元数据；读取到第 `N+1` 个字节时立即报错，标准输出为空。上限须为非负 32 位整数，可与合并、规划、巡检及导出模式组合。该选项限制单个文件的输入缓冲，解码、JSON 解析及结果仍需额外内存；省略时保留原有行为。
+
+对 200 张真实图片的预测 JSON，文件限额恰好等于文件大小时的输出与原流程一致，限额减少 1 字节时均被拒绝。[文件限额回放结果](validation/scale/cli-file-limit-results.json)记录了参数、数据和二进制哈希。
 
 MoonBit 嵌入方可以调用 `process_json_with_policy(source, { max_utf16_units: 1000000, max_tiles: 1000, max_detections: 50000 })`，由调用方而非请求设置上限。文本长度在 JSON 解析前检查，单位是 UTF-16 代码单元：例如 `🌙` 占两个单位；它不是 UTF-8 字节数。请求自带 `limits` 时，窗口和检测数取两者中更严格的上限。所有策略值须非负，未通过时返回错误。`process_coco_json_with_policy`、`process_mbmot_json_with_policy` 和 `inspect_grid_json_with_policy` 同样支持策略；COCO 的预测 JSON 和类别映射 JSON 分别受同一文本长度上限约束，映射数量不受切片或检测上限约束。接口接收的字符串已经读入内存，仍需在网络或文件读取层限制字节数；CLI、浏览器和流接口不会自动应用调用方策略。
 

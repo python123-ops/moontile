@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "images": 200,
+  "exact_file_limits_verified": 200,
+  "one_byte_short_rejected": 200,
+  "maximum_input_bytes": 49484,
+  "tiles": 1406,
+  "detections": 11657,
+  "fixture_sha256": "0e9aa27249cdcdfb3aa8cfe9c59ec0a5b1fe5c70817a77f82bdf5239225a98b4",
+  "binary_sha256": "dd5164131a4f7cfd3abc90a92f698f459cf247199308ca9157136f25bc3bb4d5",
+  "script_sha256_lf": "6d5e5a6ac4bbca274c46fdfe5f19ed07db3ec93c9b1cedda8ca555b16bea725a",
+  "command": "python validation/replay_tiled_coco.py --binary <moontile-cli> --raw validation/scale/predictions.json --report validation/scale/results.json --check-file-limit --file-limit-output validation/scale/cli-file-limit-results.json",
+  "scope": "Real crop predictions; UTF-8 files are generated from saved JSON and file byte limits are artificial boundary conditions."
+}

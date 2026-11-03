@@ -23,11 +23,15 @@ def main():
     p.add_argument('--inspection-output', type=Path)
     p.add_argument('--check-limits', action='store_true')
     p.add_argument('--limits-output', type=Path)
+    p.add_argument('--check-file-limit', action='store_true')
+    p.add_argument('--file-limit-output', type=Path)
     args = p.parse_args()
     if (args.inspect_grid and not args.require_plan) or (args.inspection_output and not args.inspect_grid):
         p.error('--inspect-grid requires --require-plan; --inspection-output requires --inspect-grid')
     if args.limits_output and not args.check_limits:
         p.error('--limits-output requires --check-limits')
+    if args.file_limit_output and not args.check_file_limit:
+        p.error('--file-limit-output requires --check-file-limit')
     raw_path = args.raw
     raw = json.loads(raw_path.read_text(encoding='utf8'))
     report = json.loads(args.report.read_text(encoding='utf8'))
@@ -39,11 +43,23 @@ def main():
     checked_plans = dropped_plans = wrong_geometry = 0
     inspected = injected = 0
     limited_complete = limited_tiles = limited_detections = 0
+    exact_files = rejected_files = max_file_size = 0
     with tempfile.TemporaryDirectory(prefix='moontile-tiled-replay-') as tmp:
         path = Path(tmp) / 'input.json'
         for request in raw['requests']:
             path.write_text(json.dumps(request, separators=(',', ':')), encoding='utf8')
             result = json.loads(subprocess.check_output([str(args.binary.resolve()), str(path)], encoding='utf8'))
+            if args.check_file_limit:
+                size = path.stat().st_size
+                max_file_size = max(max_file_size, size)
+                bounded = json.loads(subprocess.check_output([str(args.binary.resolve()), str(path), '--max-file-bytes', str(size)], encoding='utf8'))
+                if bounded != result:
+                    raise AssertionError('bounded file result differs')
+                exact_files += 1
+                bad = subprocess.run([str(args.binary.resolve()), str(path), '--max-file-bytes', str(size - 1)], capture_output=True, encoding='utf8')
+                if bad.returncode != 2 or bad.stdout or 'input file byte limit exceeded' not in bad.stderr:
+                    raise AssertionError('file size was not rejected atomically')
+                rejected_files += 1
             expected = []
             for group in request['tiles']:
                 tile = group['tile']
@@ -165,6 +181,18 @@ def main():
         print('Checked {} complete plans, {} missing tiles and {} wrong geometries.'.format(checked_plans, dropped_plans, wrong_geometry))
     elif args.plan_output:
         raise ValueError('--plan-output requires --require-plan')
+    if args.check_file_limit:
+        file_report = {'status': 'passed', 'images': len(raw['requests']), 'exact_file_limits_verified': exact_files,
+                       'one_byte_short_rejected': rejected_files, 'maximum_input_bytes': max_file_size,
+                       'tiles': sum(len(r['tiles']) for r in raw['requests']), 'detections': counts[0],
+                       'fixture_sha256': hashlib.sha256(raw_path.read_bytes()).hexdigest(),
+                       'binary_sha256': hashlib.sha256(args.binary.read_bytes()).hexdigest(),
+                       'script_sha256_lf': hashlib.sha256(Path(__file__).read_bytes().replace(b'\r\n', b'\n')).hexdigest(),
+                       'command': 'python validation/replay_tiled_coco.py --binary <moontile-cli> --raw validation/scale/predictions.json --report validation/scale/results.json --check-file-limit --file-limit-output validation/scale/cli-file-limit-results.json',
+                       'scope': 'Real crop predictions; UTF-8 files are generated from saved JSON and file byte limits are artificial boundary conditions.'}
+        if args.file_limit_output:
+            args.file_limit_output.write_text(json.dumps(file_report, indent=2) + '\n', encoding='utf8')
+        print('Checked {} exact file sizes and {} one-byte-short rejections.'.format(exact_files, rejected_files))
     if args.check_limits:
         limits_report = {'status': 'passed', 'images': len(raw['requests']), 'exact_limit_inputs_verified': limited_complete,
                          'tile_limit_inputs_rejected': limited_tiles, 'detection_limit_inputs_rejected': limited_detections,

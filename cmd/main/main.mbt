@@ -23,7 +23,7 @@ fn parse_stream_policy(
 
 ///|
 async fn main {
-  let args = @env.args()
+  let mut args = @env.args()
   if args.length() >= 2 &&
     (args[1] == "--mbmot-stream" || args[1] == "--trace-stream") {
     let mut policy : @moontile.JsonPolicy? = None
@@ -92,6 +92,31 @@ async fn main {
     }
     return
   }
+  let mut file_limit : Int? = None
+  if args.length() >= 4 && args[args.length() - 2] == "--max-file-bytes" {
+    let value = @string.parse_int(args[args.length() - 1], base=10) catch {
+      _ => {
+        @stdio.stderr.write(
+          "max-file-bytes must be a nonnegative 32-bit integer\n",
+        )
+        exit_process(2)
+        return
+      }
+    }
+    if value < 0 {
+      @stdio.stderr.write(
+        "max-file-bytes must be a nonnegative 32-bit integer\n",
+      )
+      exit_process(2)
+      return
+    }
+    file_limit = Some(value)
+    let remaining : Array[String] = []
+    for index = 0; index < args.length() - 2; index = index + 1 {
+      remaining.push(args[index])
+    }
+    args = remaining
+  }
   if args.length() != 2 &&
     !(args.length() == 3 && (args[2] == "--plan" || args[2] == "--inspect-grid")) &&
     !(args.length() == 4 &&
@@ -101,14 +126,15 @@ async fn main {
       args[2] == "--inspect-grid"
     )) {
     @stdio.stderr.write(
-      "usage: moontile INPUT.json [--plan | --inspect-grid [LIMIT] | --coco-map MAPPING.json | --mbmot-frame FRAME] | moontile --mbmot-stream|--trace-stream [--policy MAX_UTF16 MAX_TILES MAX_DETECTIONS] [--max-line-bytes N]\n",
+      "usage: moontile INPUT.json [--plan | --inspect-grid [LIMIT] | --coco-map MAPPING.json | --mbmot-frame FRAME] [--max-file-bytes N] | moontile --mbmot-stream|--trace-stream [--policy MAX_UTF16 MAX_TILES MAX_DETECTIONS] [--max-line-bytes N]\n",
     )
     exit_process(2)
     return
   }
-  let content = @fs.read_file(args[1]).text() catch {
-    _ => {
-      @stdio.stderr.write("cannot read UTF-8 input\n")
+  let content = match read_input_file(args[1], file_limit, "input") {
+    Ok(value) => value
+    Err(message) => {
+      @stdio.stderr.write(message + "\n")
       exit_process(2)
       return
     }
@@ -129,9 +155,10 @@ async fn main {
   } else if args.length() == 3 {
     @moontile.plan_json(content)
   } else if args.length() == 4 && args[2] == "--coco-map" {
-    let mapping = @fs.read_file(args[3]).text() catch {
-      _ => {
-        @stdio.stderr.write("cannot read UTF-8 mapping\n")
+    let mapping = match read_input_file(args[3], file_limit, "mapping") {
+      Ok(value) => value
+      Err(message) => {
+        @stdio.stderr.write(message + "\n")
         exit_process(2)
         return
       }
@@ -236,5 +263,50 @@ async fn run_bounded_stream(
       }
     }
     let _ = emit_stream_line(session, mode, policy, line, line_number)
+  }
+}
+
+///|
+// Read at most limit + one probe byte before rejecting; do not trust stat size.
+async fn read_input_file(
+  path : String,
+  limit : Int?,
+  label : String,
+) -> Result[String, String] {
+  match limit {
+    None => {
+      let text = @fs.read_file(path).text() catch {
+        _ => return Err("cannot read UTF-8 " + label)
+      }
+      Ok(text)
+    }
+    Some(max_bytes) => {
+      let file = @fs.open(path, mode=ReadOnly) catch {
+        _ => return Err("cannot read UTF-8 " + label)
+      }
+      defer file.close()
+      let chunk = FixedArray::make(4096, b'\x00')
+      let data : Array[Byte] = []
+      while true {
+        let remaining = max_bytes - data.length()
+        let read_limit = if remaining < 4096 { remaining + 1 } else { 4096 }
+        let count = file.read(chunk, max_len=read_limit) catch {
+          _ => return Err("cannot read UTF-8 " + label)
+        }
+        if count == 0 {
+          break
+        }
+        if count > remaining {
+          return Err(label + " file byte limit exceeded")
+        }
+        for index = 0; index < count; index = index + 1 {
+          data.push(chunk[index])
+        }
+      }
+      let text = @utf8.decode(Bytes::from_array(data[:])) catch {
+        _ => return Err("cannot read UTF-8 " + label)
+      }
+      Ok(text)
+    }
   }
 }

@@ -18,7 +18,7 @@ jobs:
       - run: moon check --target all --deny-warn
       - run: moon test --target all --deny-warn
       - run: moon -C examples/consumer test --target all --deny-warn
-      - run: node web/build.mjs && node web/test.mjs && node web/ui_test.mjs && node web/stream_test.mjs && node web/trace_stream_test.mjs && node web/cli_policy_test.mjs && node web/cli_byte_limit_test.mjs
+      - run: node web/build.mjs && node web/test.mjs && node web/ui_test.mjs && node web/stream_test.mjs && node web/trace_stream_test.mjs && node web/cli_policy_test.mjs && node web/cli_byte_limit_test.mjs && node web/cli_file_limit_test.mjs
       - run: python validation/memory_scale/run.py --counts 10000 --repeat 1 --output "$RUNNER_TEMP/memory-scale-results.json"
       - uses: actions/checkout@v4
         with:
@@ -31,7 +31,7 @@ jobs:
           if [ ! -x "$binary" ]; then binary=_build/native/debug/build/cmd/main/main; fi
           python validation/sahi_layout.py --sahi-dir _build/sahi-reference --binary "$binary" --output "$RUNNER_TEMP/sahi-layout-results.json"
           python validation/replay_tiled_coco.py --binary "$binary"
-          python validation/replay_tiled_coco.py --binary "$binary" --raw validation/scale/predictions.json --report validation/scale/results.json --clip-boundary --require-plan --inspect-grid --check-limits
+          python validation/replay_tiled_coco.py --binary "$binary" --raw validation/scale/predictions.json --report validation/scale/results.json --clip-boundary --require-plan --inspect-grid --check-limits --check-file-limit
       - run: |
           moon build validation/batch_bench --target native
           bench=_build/native/debug/build/validation/batch_bench/batch_bench.exe
